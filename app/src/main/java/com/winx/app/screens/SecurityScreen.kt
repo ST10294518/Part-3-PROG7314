@@ -1,18 +1,17 @@
 ﻿package com.winx.app.screens
 
-import android.app.Activity
-import android.content.Context
-import android.os.Build
+import android.content.ContextWrapper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -30,317 +29,182 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.winx.app.MainActivity
+import com.winx.app.utils.T
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SecurityScreen(
-    onBack: () -> Unit
-) {
+fun SecurityScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-
-    val preferences = remember {
-        context.getSharedPreferences(
-            "winx_security",
-            Context.MODE_PRIVATE
-        )
+    val activity = remember(context) {
+        var candidate = context
+        while (candidate is ContextWrapper && candidate !is MainActivity) {
+            candidate = candidate.baseContext
+        }
+        candidate as? MainActivity
+    }
+    val auth = remember { FirebaseAuth.getInstance() }
+    val user = auth.currentUser
+    val uid = user?.uid
+    if (user == null || uid == null) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(T("Please sign in to manage security."))
+            Button(onClick = onBack) { Text(T("Back")) }
+        }
+        return
     }
 
-    var currentPassword by remember {
-        mutableStateOf("")
+    var biometricEnabled by remember(uid) {
+        mutableStateOf(activity?.isBiometricEnabled(uid) ?: false)
     }
-
-    var newPassword by remember {
-        mutableStateOf("")
-    }
-
-    var confirmPassword by remember {
-        mutableStateOf("")
-    }
-
-    var message by remember {
-        mutableStateOf("")
-    }
-
-    var facialRecognition by remember {
-        mutableStateOf(
-            preferences.getBoolean(
-                "facial_recognition",
-                false
-            )
-        )
+    var biometricBusy by remember(uid) { mutableStateOf(false) }
+    var currentPassword by remember(uid) { mutableStateOf("") }
+    var newPassword by remember(uid) { mutableStateOf("") }
+    var confirmPassword by remember(uid) { mutableStateOf("") }
+    var passwordBusy by remember(uid) { mutableStateOf(false) }
+    var message by remember(uid) { mutableStateOf("") }
+    val supportsPassword = user.providerData.any {
+        it.providerId == EmailAuthProvider.PROVIDER_ID
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text("Security")
-                },
+                title = { Text(T("Security")) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                    IconButton(onClick = onBack, enabled = !passwordBusy && !biometricBusy) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, T("Back"))
                     }
                 }
             )
         }
-    ) { paddingValues ->
-
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = "Security"
-            )
-
-            Text("Change Password")
-
-            OutlinedTextField(
-                value = currentPassword,
-                onValueChange = {
-                    currentPassword = it
-                    message = ""
-                },
-                label = {
-                    Text("Current Password")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = newPassword,
-                onValueChange = {
-                    newPassword = it
-                    message = ""
-                },
-                label = {
-                    Text("New Password")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = {
-                    confirmPassword = it
-                    message = ""
-                },
-                label = {
-                    Text("Confirm New Password")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Button(
-                onClick = {
-
-                    when {
-                        currentPassword.isBlank() -> {
-                            message = "Enter your current password."
-                        }
-
-                        newPassword.length < 6 -> {
-                            message =
-                                "New password must contain at least 6 characters."
-                        }
-
-                        newPassword != confirmPassword -> {
-                            message = "Passwords do not match."
-                        }
-
-                        else -> {
-
-                            val user =
-                                FirebaseAuth
-                                    .getInstance()
-                                    .currentUser
-
-                            if (user?.email == null) {
-
-                                message =
-                                    "Password changes require an email account."
-
-                            } else {
-
-                                val credential =
-                                    EmailAuthProvider.getCredential(
-                                        user.email!!,
-                                        currentPassword
-                                    )
-
-                                user.reauthenticate(credential)
-                                    .addOnSuccessListener {
-
-                                        user.updatePassword(newPassword)
-                                            .addOnSuccessListener {
-
-                                                currentPassword = ""
-                                                newPassword = ""
-                                                confirmPassword = ""
-
-                                                message =
-                                                    "Password updated successfully."
-                                            }
-                                            .addOnFailureListener {
-                                                message =
-                                                    it.message
-                                                        ?: "Unable to update password."
-                                            }
-                                    }
-                                    .addOnFailureListener {
-                                        message =
-                                            "Current password is incorrect."
-                                    }
-                            }
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Update Password")
-            }
-
-            if (message.isNotBlank()) {
-                Text(message)
-            }
-
+            Text(T("Biometric Authentication"))
+            Text(T("Use your phone's registered biometric to unlock Winx when returning to the app."))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
-                Icon(
-                    imageVector = Icons.Default.Face,
-                    contentDescription = "Biometric authentication"
-                )
-
                 Text(
-                    text = "Biometric Authentication",
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp)
+                    text = T("Enable biometric protection"),
+                    modifier = Modifier.weight(1f)
                 )
-
                 Switch(
-                    checked = facialRecognition,
-                    onCheckedChange = { enabled ->
-
-                        if (!enabled) {
-                            facialRecognition = false
-
-                            preferences.edit()
-                                .putBoolean(
-                                    "facial_recognition",
-                                    false
-                                )
-                                .apply()
-
-                            message =
-                                "Biometric authentication disabled."
-
-                        } else {
-
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-
-                                val activity =
-                                    context as? Activity
-
-                                if (activity == null) {
-                                    message =
-                                        "Unable to start biometric authentication."
-                                    return@Switch
+                    checked = biometricEnabled,
+                    enabled = activity != null && !biometricBusy && !passwordBusy,
+                    onCheckedChange = { enable ->
+                        biometricBusy = true
+                        message = ""
+                        activity?.requestBiometricChange(enable) { success, resultMessage ->
+                            biometricBusy = false
+                            if (auth.currentUser?.uid == uid) {
+                                if (success) {
+                                    biometricEnabled = activity?.isBiometricEnabled(uid) ?: false
                                 }
-
-                                val executor =
-                                    activity.mainExecutor
-
-                                val biometricPrompt =
-                                    android.hardware.biometrics.BiometricPrompt.Builder(
-                                        activity
-                                    )
-                                        .setTitle(
-                                            "Enable Biometric Authentication"
-                                        )
-                                        .setSubtitle(
-                                            "Verify your identity"
-                                        )
-                                        .setDescription(
-                                            "Use your registered biometric to enable biometric authentication for Winx."
-                                        )
-                                        .setNegativeButton(
-                                            "Cancel",
-                                            executor
-                                        ) { _, _ ->
-                                            message =
-                                                "Biometric setup cancelled."
-                                        }
-                                        .build()
-
-                                biometricPrompt.authenticate(
-                                    android.os.CancellationSignal(),
-                                    executor,
-                                    object :
-                                        android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
-
-                                        override fun onAuthenticationSucceeded(
-                                            result: android.hardware.biometrics.BiometricPrompt.AuthenticationResult
-                                        ) {
-                                            facialRecognition = true
-
-                                            preferences.edit()
-                                                .putBoolean(
-                                                    "facial_recognition",
-                                                    true
-                                                )
-                                                .apply()
-
-                                            message =
-                                                "Biometric authentication enabled."
-                                        }
-
-                                        override fun onAuthenticationFailed() {
-                                            message =
-                                                "Biometric verification failed."
-                                        }
-
-                                        override fun onAuthenticationError(
-                                            errorCode: Int,
-                                            errString: CharSequence
-                                        ) {
-                                            message =
-                                                errString.toString()
-                                        }
-                                    }
-                                )
-
-                            } else {
-                                message =
-                                    "Biometric authentication requires Android 9 or later."
+                                message = resultMessage
                             }
                         }
                     }
                 )
             }
-
             Text(
-                text =
-                    if (facialRecognition) {
-                        "Biometric authentication is enabled."
-                    } else {
-                        "Biometric authentication is disabled."
-                    }
+                T(if (biometricEnabled) "Biometric authentication is enabled."
+                else "Biometric authentication is disabled.")
             )
+            Text(T("If biometrics are unavailable, sign out from the lock screen and sign in to your account again."))
+            if (activity == null) Text(T("Unable to access biometric authentication."))
+
+            Text(T("Change Password"))
+            if (!supportsPassword) {
+                Text(T("This account uses Google sign-in. Manage its password through Google."))
+            } else {
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it; message = "" },
+                    label = { Text(T("Current Password")) },
+                    singleLine = true,
+                    enabled = !passwordBusy,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it; message = "" },
+                    label = { Text(T("New Password")) },
+                    singleLine = true,
+                    enabled = !passwordBusy,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it; message = "" },
+                    label = { Text(T("Confirm New Password")) },
+                    singleLine = true,
+                    enabled = !passwordBusy,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Button(
+                    enabled = !passwordBusy && !biometricBusy,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        val signedInUser = auth.currentUser
+                        val email = signedInUser?.email
+                        when {
+                            signedInUser == null || signedInUser.uid != uid || email == null ->
+                                message = "Please sign in again."
+                            currentPassword.isBlank() -> message = "Enter your current password."
+                            newPassword.length < 6 ->
+                                message = "New password must contain at least 6 characters."
+                            newPassword != confirmPassword -> message = "Passwords do not match."
+                            else -> {
+                                passwordBusy = true
+                                val passwordToSave = newPassword
+                                val credential = EmailAuthProvider.getCredential(email, currentPassword)
+                                signedInUser.reauthenticate(credential)
+                                    .addOnCompleteListener { reauth ->
+                                        if (auth.currentUser?.uid != uid) {
+                                            passwordBusy = false
+                                        } else if (!reauth.isSuccessful) {
+                                            passwordBusy = false
+                                            message = "Unable to verify your current password. Please try again."
+                                        } else {
+                                            signedInUser.updatePassword(passwordToSave)
+                                                .addOnCompleteListener { update ->
+                                                    passwordBusy = false
+                                                    if (auth.currentUser?.uid == uid) {
+                                                        if (update.isSuccessful) {
+                                                            currentPassword = ""
+                                                            newPassword = ""
+                                                            confirmPassword = ""
+                                                            message = "Password updated successfully."
+                                                        } else {
+                                                            message = "Unable to update password. Check your password policy and connection."
+                                                        }
+                                                    }
+                                                }
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                ) { Text(T(if (passwordBusy) "Saving..." else "Update Password")) }
+            }
+            if (message.isNotBlank()) Text(T(message))
         }
     }
 }

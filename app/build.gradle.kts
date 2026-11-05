@@ -70,6 +70,8 @@ dependencies {
 
     // Kotlin coroutines with Firebase Tasks
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment-ktx:1.9.1")
 
     // REST API - Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

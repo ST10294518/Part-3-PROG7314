@@ -4,6 +4,12 @@ import com.winx.app.utils.T
 import com.winx.app.utils.winxFieldColors
 
 import android.util.Patterns
+import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -89,6 +96,9 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF5F7FA))
+            .imePadding()
+            .verticalScroll(rememberScrollState())
             .padding(
                 horizontal = 24.dp,
                 vertical = 32.dp
@@ -102,16 +112,21 @@ fun LoginScreen(
         // LOGO
         // ---------------------------------------------------------
 
-        Image(
-            painter = painterResource(
-                id = R.drawable.winx_logo
-            ),
-            contentDescription = "Winx logo",
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp),
-            contentScale = ContentScale.Fit
-        )
+                .width(200.dp)
+                .height(130.dp)
+                .background(Color.White, RoundedCornerShape(10.dp))
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.winx_logo),
+                contentDescription = "Winx logo",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        }
 
 
         Spacer(
@@ -120,8 +135,7 @@ fun LoginScreen(
 
 
         Text(
-            text = T("Capture places. Cherish moments.\n") +
-                        "Remember every journey.",
+            text = T("Capture places. Cherish moments.\nRemember every journey."),
             style = MaterialTheme.typography.bodyLarge,
             color = WinxDarkBlue
         )

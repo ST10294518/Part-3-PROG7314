@@ -83,15 +83,17 @@ fun DashboardScreen(
     val context = LocalContext.current
     val firebaseUser = FirebaseAuth.getInstance().currentUser
 
-    val profilePreferences =
+// Read only the signed-in account's saved profile.
+    val profilePreferences = firebaseUser?.uid?.let { uid ->
         context.getSharedPreferences(
-            "winx_profile",
+            "winx_profile_$uid",
             Context.MODE_PRIVATE
         )
+    }
 
     val displayName =
         profilePreferences
-            .getString("name", null)
+            ?.getString("name", null)
             ?.trim()
             ?.takeIf { it.isNotBlank() }
             ?: firebaseUser
