@@ -23,6 +23,7 @@ Winx is a native Android travel and food journal app built for the **PROG7314 / 
 - [REST API Reference](#rest-api-reference)
 - [Authentication](#authentication)
 - [Localisation](#localisation)
+- [Continuous Integration](#continuous-integration)
 - [Known Limitations](#known-limitations)
 - [Team](#team)
 
@@ -146,6 +147,19 @@ Winx supports two sign-in paths:
 ## Localisation
 
 The app includes a lightweight, in-app translation layer (`WinxLanguage.kt`) that swaps UI strings between **English** and **isiZulu**, toggled from the Settings → Language screen without requiring an app restart.
+
+## Continuous Integration
+
+The [Android CI workflow](.github/workflows/android-ci.yml) runs on pushes and pull requests. It runs Android unit tests, builds the debug APK, and uploads the Android test report. A separate .NET 10 job runs the Winx.API integration tests for authentication and ownership.
+
+From the repository root in Windows PowerShell, run the local checks with:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
+dotnet test .\Winx.API.Tests\Winx.API.Tests.csproj --configuration Release
+```
+
+[Passing GitHub Actions run for commit `4b48b26` on `Feature/Member-1`](https://github.com/ST10294518/Part-3-PROG7314/actions/runs/42045974200)
 
 ## Known Limitations
 
