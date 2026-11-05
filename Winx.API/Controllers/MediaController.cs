@@ -11,6 +11,18 @@ namespace Winx.API.Controllers
     {
         private readonly AppDbContext _context;
 
+        private string OwnerUid => User.FindFirst("sub")!.Value;
+
+        private IQueryable<MediaItem> OwnedMedia
+        {
+            get
+            {
+                var uid = OwnerUid;
+                return _context.MediaItems.Where(media =>
+                    media.TravelEntry != null && media.TravelEntry.OwnerUid == uid);
+            }
+        }
+
         public MediaController(AppDbContext context)
         {
             _context = context;
@@ -20,8 +32,9 @@ namespace Winx.API.Controllers
         [HttpGet("entry/{travelEntryId}")]
         public async Task<ActionResult<IEnumerable<MediaItem>>> GetMediaForEntry(int travelEntryId)
         {
+            var uid = OwnerUid;
             var entryExists = await _context.TravelEntries
-                .AnyAsync(e => e.Id == travelEntryId);
+                .AnyAsync(e => e.Id == travelEntryId && e.OwnerUid == uid);
 
             if (!entryExists)
             {
@@ -31,7 +44,7 @@ namespace Winx.API.Controllers
                 });
             }
 
-            var media = await _context.MediaItems
+            var media = await OwnedMedia
                 .Where(m => m.TravelEntryId == travelEntryId)
                 .AsNoTracking()
                 .ToListAsync();
@@ -43,7 +56,7 @@ namespace Winx.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<MediaItem>> GetMedia(int id)
         {
-            var media = await _context.MediaItems
+            var media = await OwnedMedia
                 .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.Id == id);
 
@@ -102,8 +115,9 @@ namespace Winx.API.Controllers
                 });
             }
 
+            var uid = OwnerUid;
             var entryExists = await _context.TravelEntries
-                .AnyAsync(e => e.Id == media.TravelEntryId);
+                .AnyAsync(e => e.Id == media.TravelEntryId && e.OwnerUid == uid);
 
             if (!entryExists)
             {
@@ -114,6 +128,7 @@ namespace Winx.API.Controllers
             }
 
             media.Id = 0;
+            media.TravelEntry = null;
             media.MediaType = media.MediaType.Trim();
             media.FileName = media.FileName.Trim();
             media.FilePath = media.FilePath.Trim();
@@ -131,7 +146,7 @@ namespace Winx.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMedia(int id)
         {
-            var media = await _context.MediaItems
+            var media = await OwnedMedia
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (media == null)

@@ -42,7 +42,7 @@ namespace Winx.API.Migrations
 
                     b.HasIndex("TravelEntryId");
 
-                    b.ToTable("MediaItem");
+                    b.ToTable("MediaItem", (string)null);
                 });
 
             modelBuilder.Entity("Winx.API.Models.TravelEntry", b =>
@@ -64,6 +64,9 @@ namespace Winx.API.Migrations
 
                     b.Property<string>("Notes")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OwnerUid")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Rating")
