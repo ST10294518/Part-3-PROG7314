@@ -1,5 +1,6 @@
 package com.winx.app.screens
 
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.MediaController
@@ -58,6 +59,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
+import com.winx.app.utils.T
 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,7 +90,9 @@ fun EntryScreen(
     onCancelClick: () -> Unit = {},
 
     // Selected country can be supplied by the Countries screen/navigation.
-    selectedCountry: String = ""
+    selectedCountry: String = "",
+    isSaving: Boolean = false,
+    saveError: String? = null
 ) {
 
     // -------------------------------------------------------------
@@ -95,11 +101,11 @@ fun EntryScreen(
 
     val context = LocalContext.current
 
-    val displayDate = remember {
+    val displayDate = rememberSaveable {
         SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH).format(Date())
     }
 
-    val entryDate = remember {
+    val entryDate = rememberSaveable {
         SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
     }
 
@@ -108,7 +114,12 @@ fun EntryScreen(
     // SELECTED PICTURES
     // -------------------------------------------------------------
 
-    var selectedPictures by remember {
+    var selectedPictures by rememberSaveable(
+        stateSaver = listSaver<List<Uri>, String>(
+            save = { uris -> uris.map { it.toString() } },
+            restore = { values -> values.map { Uri.parse(it) } }
+        )
+    ) {
         mutableStateOf<List<Uri>>(emptyList())
     }
 
@@ -117,7 +128,12 @@ fun EntryScreen(
     // SELECTED VIDEOS
     // -------------------------------------------------------------
 
-    var selectedVideos by remember {
+    var selectedVideos by rememberSaveable(
+        stateSaver = listSaver<List<Uri>, String>(
+            save = { uris -> uris.map { it.toString() } },
+            restore = { values -> values.map { Uri.parse(it) } }
+        )
+    ) {
         mutableStateOf<List<Uri>>(emptyList())
     }
 
@@ -126,19 +142,19 @@ fun EntryScreen(
     // ENTRY DETAILS
     // -------------------------------------------------------------
 
-    var title by remember {
+    var title by rememberSaveable {
         mutableStateOf("")
     }
 
-    var location by remember {
+    var location by rememberSaveable {
         mutableStateOf("")
     }
 
-    var notes by remember {
+    var notes by rememberSaveable {
         mutableStateOf("")
     }
 
-    var rating by remember {
+    var rating by rememberSaveable {
         mutableIntStateOf(0)
     }
 
@@ -146,7 +162,7 @@ fun EntryScreen(
     // VALIDATION
     // -------------------------------------------------------------
 
-    var validationError by remember {
+    var validationError by rememberSaveable {
         mutableStateOf<String?>(null)
     }
 
@@ -161,7 +177,17 @@ fun EntryScreen(
         ) { uris ->
 
             if (uris.isNotEmpty()) {
-                selectedPictures = uris
+                selectedPictures = uris.filter { uri ->
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                        true
+                    } catch (_: SecurityException) {
+                        validationError = "Unable to retain access to a selected photo. Please select it again."
+                        false
+                    }
+                }
             }
         }
 
@@ -176,7 +202,17 @@ fun EntryScreen(
         ) { uris ->
 
             if (uris.isNotEmpty()) {
-                selectedVideos = uris
+                selectedVideos = uris.filter { uri ->
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                        true
+                    } catch (_: SecurityException) {
+                        validationError = "Unable to retain access to a selected video. Please select it again."
+                        false
+                    }
+                }
             }
         }
 
@@ -471,14 +507,11 @@ fun EntryScreen(
 
                                 val bitmap = remember(uri) {
 
-                                    context.contentResolver
-                                        .openInputStream(uri)
-                                        ?.use { inputStream ->
-
-                                            BitmapFactory.decodeStream(
-                                                inputStream
-                                            )
+                                    runCatching {
+                                        context.contentResolver.openInputStream(uri)?.use {
+                                            BitmapFactory.decodeStream(it)
                                         }
+                                    }.getOrNull()
                                 }
 
 
@@ -931,6 +964,31 @@ fun EntryScreen(
             // VALIDATION ERROR
             // ---------------------------------------------------------
 
+            if (selectedPictures.isNotEmpty() || selectedVideos.isNotEmpty()) {
+                Text(
+                    text = T("Attachments are kept in this draft. Saving them requires the media upload integration."),
+                    color = WinxDarkBlue
+                )
+                TextButton(
+                    enabled = !isSaving,
+                    onClick = {
+                        selectedPictures = emptyList()
+                        selectedVideos = emptyList()
+                        validationError = null
+                    }
+                ) {
+                    Text(T("Remove all draft attachments"))
+                }
+            }
+
+            if (saveError != null) {
+                Text(
+                    text = T(saveError),
+                    color = Color.Red,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             if (validationError != null) {
 
                 Spacer(
@@ -971,6 +1029,7 @@ fun EntryScreen(
 
                 TextButton(
                     onClick = onCancelClick,
+                    enabled = !isSaving,
                     modifier = Modifier.weight(1f)
                 ) {
 
@@ -999,9 +1058,13 @@ fun EntryScreen(
                 // -----------------------------------------------------
 
                 Button(
+                    enabled = !isSaving,
                     onClick = {
 
                         validationError = when {
+
+                            selectedPictures.isNotEmpty() || selectedVideos.isNotEmpty() ->
+                                "Media upload is not connected yet. Your selections are kept in this draft. Remove attachments to save a text entry."
 
                             title.isBlank() ->
                                 "Please enter an entry title."
@@ -1045,7 +1108,7 @@ fun EntryScreen(
                 ) {
 
                     Text(
-                        text = "Save Entry",
+                        text = if (isSaving) "Saving..." else "Save Entry",
                         color = WinxDarkBlue,
                         fontWeight = FontWeight.Bold
                     )
