@@ -39,6 +39,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.winx.app.utils.T
 import com.winx.app.utils.winxFieldColors
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,6 +140,24 @@ fun ProfileScreen(
 
     val email = user?.email ?: ""
 
+    val profileFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        disabledTextColor = Color.White,
+        focusedLabelColor = Color.White,
+        unfocusedLabelColor = Color.White,
+        disabledLabelColor = Color.White,
+        focusedPlaceholderColor = Color.White.copy(alpha = 0.7f),
+        unfocusedPlaceholderColor = Color.White.copy(alpha = 0.7f),
+        cursorColor = Color.White,
+        focusedBorderColor = Color.White,
+        unfocusedBorderColor = Color.White.copy(alpha = 0.6f),
+        disabledBorderColor = Color.White.copy(alpha = 0.4f),
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent,
+        disabledContainerColor = Color.Transparent
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -206,7 +226,7 @@ fun ProfileScreen(
                 enabled = editing && !saving,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = winxFieldColors()
+                colors = profileFieldColors
             )
 
             OutlinedTextField(
@@ -218,7 +238,7 @@ fun ProfileScreen(
                 enabled = false,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = winxFieldColors()
+                colors = profileFieldColors
             )
 
             OutlinedTextField(
@@ -234,7 +254,7 @@ fun ProfileScreen(
                 enabled = editing && !saving,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = winxFieldColors()
+                colors = profileFieldColors
             )
 
             OutlinedTextField(
@@ -250,7 +270,7 @@ fun ProfileScreen(
                 enabled = editing && !saving,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = winxFieldColors()
+                colors = profileFieldColors
             )
 
             OutlinedTextField(
@@ -266,7 +286,7 @@ fun ProfileScreen(
                 enabled = editing && !saving,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = winxFieldColors()
+                colors = profileFieldColors
             )
 
             Spacer(
