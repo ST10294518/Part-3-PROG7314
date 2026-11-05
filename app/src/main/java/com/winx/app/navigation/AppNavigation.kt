@@ -176,7 +176,13 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = "welcome"
+        startDestination = if (
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
+        ) {
+            "dashboard"
+        } else {
+            "welcome"
+        }
     ) {
 
         // =========================================================

@@ -1,22 +1,21 @@
 package com.winx.app.screens
 
-import com.winx.app.utils.T
-
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
@@ -33,15 +32,20 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.winx.app.utils.T
 
-private val WinxPink = Color(0xFFF4B8D0)
-private val WinxBlue = Color(0xFF12A4D0)
+private val SettingsPink = Color(0xFFF4B8D0)
+private val SettingsBlue = Color(0xFF12A4D0)
+private val SettingsInk = Color(0xFF053D5B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,264 +59,112 @@ fun SettingsScreen(
     onAboutUsClick: () -> Unit,
     onLogout: () -> Unit
 ) {
-
     Scaffold(
-
+        containerColor = SettingsPink,
         topBar = {
-
             TopAppBar(
-
-                title = {
-
-                    Text(
-                        text = T("Settings"),
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-
+                title = { Text(T("Settings"), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-
-                    IconButton(
-                        onClick = onBack
-                    ) {
-
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, T("Back"))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SettingsInk,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         }
-
-    ) { paddingValues ->
-
+    ) { padding ->
         Column(
-
             modifier = Modifier
                 .fillMaxSize()
-                .background(WinxPink)
-                .padding(paddingValues)
-                .padding(
-                    horizontal = 20.dp,
-                    vertical = 16.dp
-                ),
-
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .background(SettingsPink)
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-
-            // -----------------------------------------------------
-            // SETTINGS TITLE
-            // -----------------------------------------------------
-
             Text(
-                text = T("Settings"),
+                T("Settings"),
+                color = SettingsInk,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
-
             Text(
-                text = T("Manage your Winx preferences."),
+                T("Manage your Winx preferences."),
+                color = SettingsInk,
                 style = MaterialTheme.typography.bodyMedium
             )
-
-            Spacer(
-                modifier = Modifier.height(4.dp)
-            )
-
-
-            // -----------------------------------------------------
-            // PROFILE
-            // -----------------------------------------------------
-
-            SettingsItem(
-                icon = Icons.Default.Person,
-                title = "Profile",
-                description = "View and manage your personal information.",
-                onClick = onProfileClick
-            )
-
-
-            // -----------------------------------------------------
-            // LANGUAGE
-            // -----------------------------------------------------
-
-            SettingsItem(
-                icon = Icons.Default.Language,
-                title = "Language",
-                description = "Choose your preferred language.",
-                onClick = onLanguageClick
-            )
-
-
-            // -----------------------------------------------------
-            // RECENTLY DELETED
-            // -----------------------------------------------------
-
-            SettingsItem(
-                icon = Icons.Default.RestoreFromTrash,
-                title = "Recently Deleted",
-                description = "View and restore recently deleted items.",
-                onClick = onRecentlyDeletedClick
-            )
-
-
-            // -----------------------------------------------------
-            // SECURITY
-            // -----------------------------------------------------
-
-            SettingsItem(
-                icon = Icons.Default.Lock,
-                title = "Security",
-                description = "Manage your security and privacy settings.",
-                onClick = onSecurityClick
-            )
-
-
-            // -----------------------------------------------------
-            // NOTIFICATIONS
-            // -----------------------------------------------------
-
-            SettingsItem(
-                icon = Icons.Default.Notifications,
-                title = "Notifications",
-                description = "View and manage your notifications.",
-                onClick = onNotificationsClick
-            )
-
-
-            // -----------------------------------------------------
-            // ABOUT US
-            // -----------------------------------------------------
-
-            SettingsItem(
-                icon = Icons.Default.Info,
-                title = "About Us",
-                description = "Learn more about Winx and our mission.",
-                onClick = onAboutUsClick
-            )
-
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-
-            // -----------------------------------------------------
-            // LOG OUT
-            // -----------------------------------------------------
-
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsTile(Icons.Default.Person, "Profile", "View and manage your personal information.",
+                    onProfileClick, Modifier.weight(1f))
+                SettingsTile(Icons.Default.Language, "Language", "Choose your preferred language.",
+                    onLanguageClick, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsTile(Icons.Default.RestoreFromTrash, "Recently Deleted", "View and restore recently deleted items.",
+                    onRecentlyDeletedClick, Modifier.weight(1f))
+                SettingsTile(Icons.Default.Lock, "Security", "Manage your security and privacy settings.",
+                    onSecurityClick, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsTile(Icons.Default.Notifications, "Notifications", "View and manage your notifications.",
+                    onNotificationsClick, Modifier.weight(1f))
+                SettingsTile(Icons.Default.Info, "About Us", "Learn more about Winx and our mission.",
+                    onAboutUsClick, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(4.dp))
             OutlinedButton(
-
                 onClick = onLogout,
-
                 modifier = Modifier.fillMaxWidth(),
-
-                shape = RoundedCornerShape(24.dp)
-
+                shape = RoundedCornerShape(10.dp)
             ) {
-
-                Text(
-                    text = T("Log Out"),
-                    color = WinxBlue,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(T("Log Out"), color = SettingsInk, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
-
-// =================================================================
-// SETTINGS ITEM
-// =================================================================
-
 @Composable
-private fun SettingsItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun SettingsTile(
+    icon: ImageVector,
     title: String,
     description: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-
     Card(
-
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                onClick()
-            },
-
-        shape = RoundedCornerShape(8.dp),
-
+        onClick = onClick,
+        modifier = modifier.aspectRatio(1f),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = Color.White,
+            contentColor = SettingsInk
         ),
-
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-
-        Row(
-
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.Start
         ) {
-
-            // -----------------------------------------------------
-            // ICON
-            // -----------------------------------------------------
-
-            Icon(
-
-                imageVector = icon,
-
-                contentDescription = title,
-
-                tint = WinxBlue,
-
-                modifier = Modifier.size(28.dp)
+            Icon(icon, null, tint = SettingsBlue, modifier = Modifier.size(28.dp))
+            Text(
+                T(title),
+                color = SettingsInk,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
-
-
-            Spacer(
-                modifier = Modifier.size(12.dp)
-            )
-
-
-            // -----------------------------------------------------
-            // TEXT
-            // -----------------------------------------------------
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-
-            // -----------------------------------------------------
-            // ARROW
-            // -----------------------------------------------------
-
-            Icon(
-
-                imageVector = Icons.Default.ChevronRight,
-
-                contentDescription = "Open $title"
+            Text(
+                T(description),
+                color = SettingsInk,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
