@@ -379,12 +379,18 @@ fun AppNavigation() {
                 },
 
                 onLogout = {
-
                     googleAuthManager.signOut()
 
-                    navController.navigate("welcome") {
+                    // Clear the previous account's loaded navigation state.
+                    selectedCountry = ""
+                    entries = emptyList()
+                    selectedEntry = null
+                    entryToDelete = null
+                    apiError = null
+                    entriesLoading = false
 
-                        popUpTo("settings") {
+                    navController.navigate("welcome") {
+                        popUpTo(navController.graph.id) {
                             inclusive = true
                         }
 
