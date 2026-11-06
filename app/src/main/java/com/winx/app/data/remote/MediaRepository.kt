@@ -78,7 +78,9 @@ class MediaRepository {
         }
     }
 
-    suspend fun uploadMedia(context: Context, travelEntryId: Int, uri: Uri): Result<MediaItemDto> {
+    suspend fun uploadMedia(
+        context: Context, travelEntryId: Int, uri: Uri, operationId: String
+    ): Result<MediaItemDto> {
         return try {
             val uploaded = withContext(Dispatchers.IO) {
                 val resolver = context.contentResolver
@@ -141,7 +143,7 @@ class MediaRepository {
                         "file", "$baseName.$extension", temporaryFile.asRequestBody()
                     )
                     session.request { authorization ->
-                        api.uploadMedia(authorization, travelEntryId, part)
+                        api.uploadMedia(authorization, travelEntryId, operationId, part)
                     }
                 } finally {
                     temporaryFile.delete()

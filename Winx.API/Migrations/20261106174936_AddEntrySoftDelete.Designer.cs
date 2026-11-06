@@ -26,6 +26,9 @@ namespace Winx.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("BlobName")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -46,6 +49,16 @@ namespace Winx.API.Migrations
                     b.HasIndex("TravelEntryId");
 
                     b.ToTable("MediaItem", (string)null);
+                });
+
+            modelBuilder.Entity("Winx.API.Models.PendingBlobDeletion", b =>
+                {
+                    b.Property<string>("BlobName")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("BlobName");
+
+                    b.ToTable("PendingBlobDeletions");
                 });
 
             modelBuilder.Entity("Winx.API.Models.TravelEntry", b =>

@@ -24,3 +24,9 @@ local.properties
 **/*firebase-adminsdk*.json
 **/*service-account*.json
 **/firebase-admin.json
+
+# Generated build output
+.gradle/
+**/bin/
+**/obj/
+**/build/
