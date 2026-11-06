@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Winx.API.Data;
 using Winx.API.Models;
+using Winx.API.Notifications;
 
 namespace Winx.API.Controllers
 {
@@ -136,6 +137,7 @@ namespace Winx.API.Controllers
             media.FilePath = media.FilePath.Trim();
 
             _context.MediaItems.Add(media);
+            NotificationEvents.Add(_context, OwnerUid, "media.added", media.TravelEntryId);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
@@ -154,7 +156,7 @@ namespace Winx.API.Controllers
         {
             var uid = OwnerUid;
             var entryExists = await _context.TravelEntries.AnyAsync(
-                entry => entry.Id == travelEntryId && entry.OwnerUid == uid,
+                entry => entry.Id == travelEntryId && entry.OwnerUid == uid && !entry.IsDeleted,
                 cancellationToken);
 
             if (!entryExists)
@@ -213,6 +215,7 @@ namespace Winx.API.Controllers
                 }, cancellationToken);
 
                 _context.MediaItems.Add(media);
+                NotificationEvents.Add(_context, OwnerUid, "media.added", travelEntryId);
                 // Complete the database write even if the caller disconnects after upload.
                 await _context.SaveChangesAsync();
             }
@@ -299,6 +302,7 @@ namespace Winx.API.Controllers
             }
 
             _context.MediaItems.Remove(media);
+            NotificationEvents.Add(_context, OwnerUid, "media.deleted", media.TravelEntryId);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 

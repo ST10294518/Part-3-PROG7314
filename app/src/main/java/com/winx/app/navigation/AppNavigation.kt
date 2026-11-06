@@ -87,6 +87,16 @@ private fun AppSessionNavigation(
 ) {
 
     val navController = rememberNavController()
+    val notificationContext = LocalContext.current
+    val notificationRequest by com.winx.app.notifications.NotificationNavigation.pending.collectAsState()
+    LaunchedEffect(notificationRequest, signedIn) {
+        val request = notificationRequest
+        if (signedIn && request != null && FirebaseAuth.getInstance().currentUser?.uid == request.uid) {
+            com.winx.app.notifications.NotificationInbox.markRead(notificationContext, request.uid, request.eventId)
+            navController.navigate("notifications") { launchSingleTop = true }
+            com.winx.app.notifications.NotificationNavigation.pending.value = null
+        }
+    }
 
     // =============================================================
     // CONTEXT / COROUTINES

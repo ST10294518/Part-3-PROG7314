@@ -52,5 +52,6 @@ class WinxOfflineApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         OfflineRuntime.initialise(this)
+        com.winx.app.notifications.NotificationRuntime.initialise(this)
     }
 }

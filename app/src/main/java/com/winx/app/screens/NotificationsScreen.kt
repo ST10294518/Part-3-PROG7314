@@ -54,6 +54,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.google.firebase.auth.FirebaseAuth
+import com.winx.app.notifications.NotificationRuntime
 import com.winx.app.notifications.NotificationInbox
 import com.winx.app.notifications.WinxNotifications
 import com.winx.app.notifications.notificationText
@@ -65,6 +66,7 @@ import java.util.Locale
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { NotificationRuntime.schedule(context) }
     val auth = remember { FirebaseAuth.getInstance() }
     var user by remember { mutableStateOf(auth.currentUser) }
     DisposableEffect(auth) {
@@ -216,6 +218,9 @@ fun NotificationsScreen(onBack: () -> Unit) {
                     }
                     items(records, key = { it.id }) { record ->
                         Card(
+                            onClick = {
+                                if (auth.currentUser?.uid == uid) NotificationInbox.markRead(context, uid, record.id)
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color.White, contentColor = ink)
                         ) {
@@ -237,7 +242,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { clearDialog = false },
             title = { Text(label("Clear notification history?")) },
-            text = { Text(label("This removes notification history for this account on this phone.")) },
+            text = { Text(label("This clears notification history for this account on all devices after they refresh.")) },
             confirmButton = {
                 Button(onClick = {
                     if (auth.currentUser?.uid == uid) NotificationInbox.clear(context, uid)

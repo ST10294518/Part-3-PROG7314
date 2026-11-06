@@ -20,3 +20,7 @@ local.properties
 
 # macOS
 .DS_Store
+# Server-only Firebase credentials must never be committed
+**/*firebase-adminsdk*.json
+**/*service-account*.json
+**/firebase-admin.json

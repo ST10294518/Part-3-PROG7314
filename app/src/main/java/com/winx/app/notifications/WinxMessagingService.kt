@@ -12,12 +12,14 @@ class WinxMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
 
-        // Keep the latest token for future backend registration.
+        // Persist and register rotated tokens with the authenticated backend.
         getSharedPreferences("winx_push", MODE_PRIVATE)
             .edit()
             .putString("fcm_token", token)
             .putBoolean("registration_pending", true)
             .apply()
+
+        NotificationRuntime.schedule(this)
 
         if (isDebugBuild()) {
             Log.d("WinxFCM", "FCM token: $token")
@@ -73,8 +75,9 @@ class WinxMessagingService : FirebaseMessagingService() {
             id = eventId,
             title = title,
             body = body,
-            receivedAt = System.currentTimeMillis(),
-            read = false
+            receivedAt = message.data["received_at"]?.toLongOrNull() ?: System.currentTimeMillis(),
+            read = message.data["read"] == "true",
+            kind = message.data["kind"] ?: ""
         )
 
         val added = NotificationInbox.add(
@@ -83,21 +86,25 @@ class WinxMessagingService : FirebaseMessagingService() {
             record = record
         )
 
-        if (!added) {
-            return
-        }
+        NotificationRuntime.schedule(this)
+
+        val saved = NotificationInbox.read(this, accountUid).firstOrNull { it.id == eventId } ?: return
+        if (saved.read) return
+        if (!added && saved.kind.isBlank()) return
 
         Log.d("WinxFCM", "New message saved to notification history.")
 
         // Keep history while allowing the user to mute phone alerts.
         if (
-            NotificationInbox.enabled(this, accountUid) &&
+            !record.read && NotificationInbox.enabled(this, accountUid) &&
             FirebaseAuth.getInstance().currentUser?.uid == accountUid
         ) {
             WinxNotifications.show(
                 context = this,
                 title = title,
-                body = body
+                body = body,
+                uid = accountUid,
+                eventId = eventId
             )
         }
     }

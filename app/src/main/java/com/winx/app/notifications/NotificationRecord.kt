@@ -5,7 +5,9 @@ data class NotificationRecord(
     val title: String,
     val body: String,
     val receivedAt: Long,
-    val read: Boolean = false
+    val read: Boolean = false,
+    val kind: String = "",
+    val entryId: Int? = null
 )
 
 object NotificationRules {

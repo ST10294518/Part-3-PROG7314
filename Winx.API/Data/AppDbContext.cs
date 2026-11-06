@@ -10,6 +10,9 @@ namespace Winx.API.Data
         {
         }
 
+        public DbSet<PushNotification> PushNotifications { get; set; }
+        public DbSet<PushDevice> PushDevices { get; set; }
+
         public DbSet<OfflineCreateReceipt> OfflineCreateReceipts { get; set; }
 
         public DbSet<TravelEntry> TravelEntries { get; set; }
@@ -21,6 +24,12 @@ namespace Winx.API.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<PushNotification>().HasKey(n => n.Id);
+            modelBuilder.Entity<PushNotification>().HasIndex(n => new { n.OwnerUid, n.ReceivedAt });
+            modelBuilder.Entity<PushNotification>().HasIndex(n => new { n.Dispatched, n.NextAttemptAt });
+            modelBuilder.Entity<PushDevice>().HasKey(d => d.InstallationId);
+            modelBuilder.Entity<PushDevice>().HasIndex(d => d.Token).IsUnique();
+            modelBuilder.Entity<PushDevice>().HasIndex(d => d.OwnerUid);
 
             modelBuilder.Entity<OfflineCreateReceipt>()
                 .HasKey(e => new { e.OwnerUid, e.OperationId });
