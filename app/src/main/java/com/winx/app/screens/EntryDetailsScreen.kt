@@ -62,6 +62,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.launch
 
 @Composable
@@ -98,21 +99,26 @@ fun EntryDetailsScreen(
 
     val mediaContext = LocalContext.current.applicationContext
     var pendingAttachment by rememberSaveable(entry.id) { mutableStateOf<String?>(null) }
+    var pendingOperationId by rememberSaveable(entry.id) { mutableStateOf<String?>(null) }
     var uploadError by rememberSaveable(entry.id) { mutableStateOf<String?>(null) }
     var isUploading by remember(entry.id) { mutableStateOf(false) }
 
     fun uploadPendingAttachment() {
         val pending = pendingAttachment ?: return
+        val operationId = pendingOperationId ?: UUID.randomUUID().toString().also {
+            pendingOperationId = it
+        }
         if (isUploading) return
 
         isUploading = true
         uploadError = null
         coroutineScope.launch {
             try {
-                mediaRepository.uploadMedia(mediaContext, entry.id, Uri.parse(pending))
+                mediaRepository.uploadMedia(mediaContext, entry.id, Uri.parse(pending), operationId)
                     .onSuccess { uploaded ->
                         mediaItems = (mediaItems + uploaded).distinctBy { it.id }
                         pendingAttachment = null
+                        pendingOperationId = null
                     }
                     .onFailure { error ->
                         uploadError = error.message ?: "Unable to upload the attachment."
@@ -218,6 +224,7 @@ fun EntryDetailsScreen(
                             TextButton(onClick = { uploadPendingAttachment() }) { Text("Retry") }
                             TextButton(onClick = {
                                 pendingAttachment = null
+                                pendingOperationId = null
                                 uploadError = null
                             }) { Text("Discard") }
                         }

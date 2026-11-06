@@ -38,6 +38,7 @@ interface MediaApiService {
     suspend fun uploadMedia(
         @Header("Authorization") authorization: String,
         @Path("travelEntryId") travelEntryId: Int,
+        @Header("Idempotency-Key") operationId: String,
         @Part file: MultipartBody.Part
     ): MediaItemDto
 
