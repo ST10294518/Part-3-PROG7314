@@ -45,7 +45,7 @@ Winx lets users log the places they've visited (and the meals they've had along 
 -  **Country picker** — Attach a country to each entry
 -  **Settings suite** — Profile, Language, Notifications, Security, Recently Deleted, About Us
 -  **Multi-language support** — In-app English / isiZulu translation toggle
--  **REST-backed persistence** — All entries and media are stored via the Winx.API backend (SQLite + Entity Framework Core)
+-  **REST-backed persistence** — Winx.API stores entries and attachment metadata in SQLite and uploaded files in private Azure Blob Storage.
 
 ## Tech Stack
 
@@ -60,6 +60,7 @@ Winx lets users log the places they've visited (and the meals they've had along 
 **Backend API** (`Winx.API/`)
 - ASP.NET Core Web API (.NET 10)
 - Entity Framework Core with SQLite
+- Azure Blob Storage for uploaded photos and videos
 - Swagger / OpenAPI (Swashbuckle) for API documentation
 
 ## Project Structure
@@ -124,6 +125,9 @@ Winx.API runs on Azure App Service in South Africa North using .NET 10 on Linux.
 | `ConnectionStrings__DefaultConnection` | Points SQLite to `Data Source=/home/winx.db`. |
 | `WEBSITES_ENABLE_APP_SERVICE_STORAGE` | Enables persistent App Service storage. Set to `true`. |
 | `Database__MigrateOnStartup` | Applies EF Core migrations when enabled. It was set to `true` for initial deployment and set back to `false` after verification. |
+| `MediaStorage__ContainerUri` | HTTPS URL of the private media container, such as `https://<storage-account>.blob.core.windows.net/media`. |
+
+Enable the App Service system-assigned managed identity and grant it **Storage Blob Data Contributor** scoped to the media container. The deployed storage account disables anonymous blob access and shared-key authentication.
 
 To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework-dependent build. ZIP the contents of the publish folder and upload the ZIP with `az webapp deploy --type zip`. Azure initialises the SQLite database separately from the deployment package.
 
@@ -133,6 +137,7 @@ To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework
 - Account A created the test entry **Azure restart test** (`201`) and read it back (`200`).
 - After restarting App Service, the same entry was still available as entry `1` (`200`).
 - The updated debug APK loaded the Azure test entry on a physical Android phone.
+- An authenticated PNG upload returned `201` and the download returned `200` with identical bytes. Deleting the media returned `204`, the content route then returned `404`, and the cleanup worker removed the blob.
 
 [Hosted Winx.API](https://winx-api-part3-d9b31478.azurewebsites.net/)
 
@@ -149,13 +154,17 @@ To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework
 | DELETE | `/api/Entries/{id}`          | Delete an entry                      |
 | GET    | `/api/Media/entry/{travelEntryId}` | Get all media for a given entry |
 | GET    | `/api/Media/{id}`            | Get a single media item by ID        |
-| POST   | `/api/Media`                  | Add a media item (photo/video) to an entry |
-| DELETE | `/api/Media/{id}`            | Delete a media item                  |
+| POST   | `/api/Media`                  | Create a legacy media metadata record |
+| POST   | `/api/Media/entry/{travelEntryId}/upload` | Upload a file using multipart form field `file`. Returns `201` with the media metadata. |
+| GET    | `/api/Media/{id}/content`    | Stream the uploaded file. Supports HTTP range requests. |
+| DELETE | `/api/Media/{id}`            | Delete the media record and queue blob cleanup. |
 
 **Validation notes:**
 - `Rating` must be between 1 and 5 (enforced on create and update).
 - `MediaType` must be either `"Photo"` or `"Video"`.
 - Media items require a valid, existing `TravelEntryId`.
+- Uploads require a non-empty JPEG, PNG, WebP, or MP4 file no larger than 25 MiB. The upload and content routes require a Firebase bearer token and return `404` when the entry or media belongs to another account.
+- Deleting an entry also queues cleanup for its uploaded attachments. A background worker retries failed blob deletions.
 
 ## Authentication
 
@@ -182,7 +191,8 @@ dotnet test .\Winx.API.Tests\Winx.API.Tests.csproj --configuration Release
 
 ## Known Limitations
 
-- Media files are referenced by file name/path rather than uploaded as binary content to the API.
+- Legacy media records created from local file paths may only open on the device that selected the file.
+- If the API saves an upload but the client loses the success response, retrying can create a duplicate attachment.
 
 
 Group project for **PROG7314 / OPSC7312** at The Independent Institute of Education (IIE).
