@@ -27,7 +27,7 @@ public sealed class BlobDeletionWorker(
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private async Task ProcessPendingDeletionsAsync(CancellationToken cancellationToken)
+    internal async Task ProcessPendingDeletionsAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();

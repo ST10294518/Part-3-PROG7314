@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
+import java.util.UUID
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -612,6 +613,7 @@ private fun AppSessionNavigation(
             var isSaving by remember { mutableStateOf(false) }
             var saveError by rememberSaveable { mutableStateOf<String?>(null) }
             var savedEntryId by rememberSaveable { mutableStateOf(0) }
+            val uploadDraftId = rememberSaveable { UUID.randomUUID().toString() }
             var uploadedMediaUris by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
 
             fun showEntries() {
@@ -659,7 +661,12 @@ private fun AppSessionNavigation(
                                     val uriKey = uri.toString()
                                     if (uriKey in uploadedMediaUris) continue
 
-                                    val result = mediaRepository.uploadMedia(mediaContext, savedEntryId, uri)
+                                    val operationId = UUID.nameUUIDFromBytes(
+                                        "$uploadDraftId:$uriKey".toByteArray(Charsets.UTF_8)
+                                    ).toString()
+                                    val result = mediaRepository.uploadMedia(
+                                        mediaContext, savedEntryId, uri, operationId
+                                    )
                                     ensureActive()
                                     result.getOrElse { exception ->
                                         Log.e("AppNavigation", "Failed to upload an attachment", exception)
