@@ -125,9 +125,11 @@ Winx.API runs on Azure App Service in South Africa North using .NET 10 on Linux.
 | `ConnectionStrings__DefaultConnection` | Points SQLite to `Data Source=/home/winx.db`. |
 | `WEBSITES_ENABLE_APP_SERVICE_STORAGE` | Enables persistent App Service storage. Set to `true`. |
 | `Database__MigrateOnStartup` | Applies EF Core migrations when enabled. It was set to `true` for initial deployment and set back to `false` after verification. |
+| `FavouritesStorage__ServiceUri` | Azure Table service URL, such as `https://<storage-account>.table.core.windows.net/`. |
+| `FavouritesStorage__TableName` | Favourites table name. Defaults to `WinxJournalFavourites`. |
 | `MediaStorage__ContainerUri` | HTTPS URL of the private media container, such as `https://<storage-account>.blob.core.windows.net/media`. |
 
-Enable the App Service system-assigned managed identity and grant it **Storage Blob Data Contributor** scoped to the media container. The deployed storage account disables anonymous blob access and shared-key authentication.
+Enable the App Service system-assigned managed identity and grant it **Storage Blob Data Contributor** scoped to the media container. The deployed storage account disables anonymous blob access and shared-key authentication. Grant the same managed identity **Storage Table Data Contributor** scoped to the favourites table.
 
 To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework-dependent build. ZIP the contents of the publish folder and upload the ZIP with `az webapp deploy --type zip`. Azure initialises the SQLite database separately from the deployment package.
 
@@ -152,6 +154,9 @@ To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework
 | POST   | `/api/Entries`                | Create a new entry                   |
 | PUT    | `/api/Entries/{id}`          | Update an existing entry             |
 | DELETE | `/api/Entries/{id}`          | Delete an entry                      |
+| GET    | `/api/Favourites`            | List the signed-in user's active favourite entry IDs. |
+| PUT    | `/api/Favourites/{id}`       | Save an owned active entry as a favourite. |
+| DELETE | `/api/Favourites/{id}`       | Remove an owned active entry from favourites. |
 | GET    | `/api/Media/entry/{travelEntryId}` | Get all media for a given entry |
 | GET    | `/api/Media/{id}`            | Get a single media item by ID        |
 | POST   | `/api/Media`                  | Create a legacy media metadata record |
@@ -165,6 +170,12 @@ To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework
 - Media items require a valid, existing `TravelEntryId`.
 - Uploads require a non-empty JPEG, PNG, WebP, or MP4 file no larger than 25 MiB. The upload and content routes require a Firebase bearer token and return `404` when the entry or media belongs to another account.
 - Deleting an entry also queues cleanup for its uploaded attachments. A background worker retries failed blob deletions.
+
+## Favourites and storage
+
+Winx.API stores favourite entry IDs in Azure Table Storage and checks entry ownership in SQLite. Each favourite uses a partition derived from the signed-in Firebase UID and the entry ID as its row key. Repeating a save targets the same row. Soft-deleted entries are hidden from favourites until restored. Permanently deleted entries are excluded from the list even if a favourite row remains.
+
+Journal entries, ownership and media metadata stay in SQLite at `/home/winx.db` in Azure. This change adds no SQLite migration and preserves the existing database and blob attachments. The Android app imports eligible device-local favourites on the first successful cloud refresh, then caches cloud favourites per account for viewing when disconnected. Changing favourites requires a connection.
 
 ## Authentication
 
