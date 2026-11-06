@@ -8,8 +8,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +23,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
+import com.google.firebase.auth.FirebaseAuth
 import com.winx.app.auth.GoogleAuthManager
 import com.winx.app.data.remote.TravelEntryRepository
 
@@ -49,6 +52,36 @@ import kotlinx.coroutines.ensureActive
 
 @Composable
 fun AppNavigation() {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var userUid by remember { mutableStateOf(auth.currentUser?.uid) }
+
+    DisposableEffect(auth) {
+        val listener = FirebaseAuth.AuthStateListener { currentAuth ->
+            userUid = currentAuth.currentUser?.uid
+        }
+        auth.addAuthStateListener(listener)
+        onDispose { auth.removeAuthStateListener(listener) }
+    }
+
+    // Discard the old navigation stack, screen state and coroutine scope when the account changes.
+    key(userUid) {
+        AppSessionNavigation(
+            signedIn = userUid != null,
+            onSignedIn = { userUid = auth.currentUser?.uid },
+            onSignOut = {
+                auth.signOut()
+                userUid = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun AppSessionNavigation(
+    signedIn: Boolean,
+    onSignedIn: () -> Unit,
+    onSignOut: () -> Unit
+) {
 
     val navController = rememberNavController()
 
@@ -176,13 +209,7 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = if (
-            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
-        ) {
-            "dashboard"
-        } else {
-            "welcome"
-        }
+        startDestination = if (signedIn) "dashboard" else "welcome"
     ) {
 
         // =========================================================
@@ -208,12 +235,7 @@ fun AppNavigation() {
 
                 onLoginClick = {
 
-                    navController.navigate("dashboard") {
-
-                        popUpTo("login") {
-                            inclusive = true
-                        }
-                    }
+                    onSignedIn()
                 },
 
                 onCreateAccountClick = {
@@ -237,12 +259,7 @@ fun AppNavigation() {
 
                                     googleSignInLoading = false
 
-                                    navController.navigate("dashboard") {
-
-                                        popUpTo("login") {
-                                            inclusive = true
-                                        }
-                                    }
+                                    onSignedIn()
                                 }
                                 .onFailure { exception ->
 
@@ -272,12 +289,7 @@ fun AppNavigation() {
 
                 onCreateAccountClick = {
 
-                    navController.navigate("login") {
-
-                        popUpTo("register") {
-                            inclusive = true
-                        }
-                    }
+                    onSignedIn()
                 }
             )
         }
@@ -379,24 +391,7 @@ fun AppNavigation() {
                     navController.navigate("aboutUs")
                 },
 
-                onLogout = {
-                    googleAuthManager.signOut()
-
-                    // Clear the previous account's loaded navigation state.
-                    entries = emptyList()
-                    selectedEntry = null
-                    entryToDelete = null
-                    apiError = null
-                    entriesLoading = false
-
-                    navController.navigate("welcome") {
-                        popUpTo(navController.graph.id) {
-                            inclusive = true
-                        }
-
-                        launchSingleTop = true
-                    }
-                }
+                onLogout = onSignOut
             )
         }
 

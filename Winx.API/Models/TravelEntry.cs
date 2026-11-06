@@ -1,8 +1,14 @@
+using System.Text.Json.Serialization;
+
 namespace Winx.API.Models
 {
     public class TravelEntry
     {
         public int Id { get; set; }
+
+        // Null for legacy entries that predate Firebase ownership.
+        [JsonIgnore]
+        public string? OwnerUid { get; set; }
 
         public string Title { get; set; } = string.Empty;
 
