@@ -1,12 +1,10 @@
-# Winx 
+# Winx
 
-Github Link: https://github.com/EMKNDW/prog7314-g1-2026-prog7314-2026-poe-st10294518.git 
+<img src="app/src/main/ic_launcher-playstore.png" alt="Winx app icon" width="96">
 
-Video Link: https://youtu.be/eLnRsHEydFQ 
+Winx is a native Android travel and food journal for the PROG7314 / OPSC7312 Portfolio of Evidence. A Kotlin and Jetpack Compose app connects to the custom ASP.NET Core Winx.API hosted on Azure App Service.
 
-**Capture places. Cherish moments. Remember every journey.**
-
-Winx is a native Android travel and food journal app built for the **PROG7314 / OPSC7312 (Programming 3D & Open Source Coding)** Portfolio of Evidence — Part 2: App Prototype Development. It pairs a Kotlin + Jetpack Compose Android client with a self-hosted **Winx.API** REST backend (ASP.NET Core) for storing and syncing travel entries and their media.
+[Prototype demonstration](https://youtu.be/eLnRsHEydFQ) · [Part 3 release notes](docs/RELEASE-NOTES.md) · [AI usage](docs/AI-USAGE.md)
 
 ---
 
@@ -26,13 +24,12 @@ Winx is a native Android travel and food journal app built for the **PROG7314 / 
 - [Localisation](#localisation)
 - [Continuous Integration](#continuous-integration)
 - [Known Limitations](#known-limitations)
-- [Team](#team)
 
 ---
 
 ## Overview
 
-Winx lets users log the places they've visited (and the meals they've had along the way), attach photos and videos, rate the experience, and browse everything back through a dashboard, calendar, and library view. All data is persisted through a custom REST API rather than a third-party BaaS, satisfying the POE requirement for a self-hosted backend.
+Winx lets users log the places they've visited (and the meals they've had along the way), attach photos and videos, rate the experience, and browse everything back through a dashboard, calendar, and library view. Winx.API handles cloud journal operations. The Android Offline Journal keeps its cache and pending text entries in local SQLite until it can synchronise.
 
 ## Features
 
@@ -44,8 +41,11 @@ Winx lets users log the places they've visited (and the meals they've had along 
 -  **Library** — Central hub linking to entries, calendar, and settings
 -  **Country picker** — Attach a country to each entry
 -  **Settings suite** — Profile, Language, Notifications, Security, Recently Deleted, About Us
--  **Multi-language support** — In-app English / isiZulu translation toggle
--  **REST-backed persistence** — All entries and media are stored via the Winx.API backend (SQLite + Entity Framework Core)
+-  **Multi-language support** — English, isiZulu, and Afrikaans on supported screens.
+-  **Offline Journal** — Read cached entries and queue new text entries for synchronisation when connectivity returns. See the [offline journal guide](docs/OFFLINE-JOURNAL.md).
+-  **Favourites and Surprise me** — Save entries across devices or rediscover a random memory.
+-  **Biometric lock** — Protect a signed-in account with the phone's enrolled biometrics.
+-  **REST-backed persistence** — Winx.API stores entries and attachment metadata in SQLite and uploaded files in private Azure Blob Storage.
 
 ## Tech Stack
 
@@ -60,12 +60,14 @@ Winx lets users log the places they've visited (and the meals they've had along 
 **Backend API** (`Winx.API/`)
 - ASP.NET Core Web API (.NET 10)
 - Entity Framework Core with SQLite
+- Azure Blob Storage for uploaded photos and videos
+- Azure Table Storage for account-scoped favourites
 - Swagger / OpenAPI (Swashbuckle) for API documentation
 
 ## Project Structure
 
 ```
-PROG7314-Part-2-Repo/
+Part-3-PROG7314/
 ├── app/                                # Android application module
 │   └── src/main/java/com/winx/app/
 │       ├── auth/                       # GoogleAuthManager
@@ -124,6 +126,11 @@ Winx.API runs on Azure App Service in South Africa North using .NET 10 on Linux.
 | `ConnectionStrings__DefaultConnection` | Points SQLite to `Data Source=/home/winx.db`. |
 | `WEBSITES_ENABLE_APP_SERVICE_STORAGE` | Enables persistent App Service storage. Set to `true`. |
 | `Database__MigrateOnStartup` | Applies EF Core migrations when enabled. It was set to `true` for initial deployment and set back to `false` after verification. |
+| `FavouritesStorage__ServiceUri` | Azure Table service URL, such as `https://<storage-account>.table.core.windows.net/`. |
+| `FavouritesStorage__TableName` | Favourites table name. Defaults to `WinxJournalFavourites`. |
+| `MediaStorage__ContainerUri` | HTTPS URL of the private media container, such as `https://<storage-account>.blob.core.windows.net/media`. |
+
+Enable the App Service system-assigned managed identity and grant it **Storage Blob Data Contributor** scoped to the media container. The deployed storage account disables anonymous blob access and shared-key authentication. Grant the same managed identity **Storage Table Data Contributor** scoped to the favourites table.
 
 To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework-dependent build. ZIP the contents of the publish folder and upload the ZIP with `az webapp deploy --type zip`. Azure initialises the SQLite database separately from the deployment package.
 
@@ -133,6 +140,7 @@ To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework
 - Account A created the test entry **Azure restart test** (`201`) and read it back (`200`).
 - After restarting App Service, the same entry was still available as entry `1` (`200`).
 - The updated debug APK loaded the Azure test entry on a physical Android phone.
+- An authenticated PNG upload returned `201` and the download returned `200` with identical bytes. Deleting the media returned `204`, the content route then returned `404`, and the cleanup worker removed the blob.
 
 [Hosted Winx.API](https://winx-api-part3-d9b31478.azurewebsites.net/)
 
@@ -146,16 +154,39 @@ To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework
 | GET    | `/api/Entries/{id}`          | Get a single entry by ID             |
 | POST   | `/api/Entries`                | Create a new entry                   |
 | PUT    | `/api/Entries/{id}`          | Update an existing entry             |
-| DELETE | `/api/Entries/{id}`          | Delete an entry                      |
+| DELETE | `/api/Entries/{id}`          | Move an entry to Recently Deleted. |
+| GET    | `/api/Entries/deleted`       | List the signed-in user's deleted entries. |
+| POST   | `/api/Entries/{id}/restore` | Restore an entry with its original ID and attachments. |
+| DELETE | `/api/Entries/{id}/permanent` | Permanently delete one entry from Recently Deleted. |
+| DELETE | `/api/Entries/deleted`       | Empty Recently Deleted for the signed-in user. |
+| GET    | `/api/Favourites`            | List the signed-in user's active favourite entry IDs. |
+| PUT    | `/api/Favourites/{id}`       | Save an owned active entry as a favourite. |
+| DELETE | `/api/Favourites/{id}`       | Remove an owned active entry from favourites. |
 | GET    | `/api/Media/entry/{travelEntryId}` | Get all media for a given entry |
 | GET    | `/api/Media/{id}`            | Get a single media item by ID        |
-| POST   | `/api/Media`                  | Add a media item (photo/video) to an entry |
-| DELETE | `/api/Media/{id}`            | Delete a media item                  |
+| POST   | `/api/Media`                  | Create a legacy media metadata record |
+| POST   | `/api/Media/entry/{travelEntryId}/upload` | Upload a file using multipart form field `file`. Returns `201` for a new attachment or `200` for a completed retry. |
+| GET    | `/api/Media/{id}/content`    | Stream the uploaded file. Supports HTTP range requests. |
+| DELETE | `/api/Media/{id}`            | Delete the media record and queue blob cleanup. |
 
 **Validation notes:**
 - `Rating` must be between 1 and 5 (enforced on create and update).
 - `MediaType` must be either `"Photo"` or `"Video"`.
 - Media items require a valid, existing `TravelEntryId`.
+- Uploads require a non-empty JPEG, PNG, WebP, or MP4 file no larger than 25 MiB. The upload and content routes require a Firebase bearer token and return `404` when the entry or media belongs to another account.
+- Send a stable UUID in the optional `Idempotency-Key` header when uploading. Retry the same attachment with the same key. The Android app keeps the key with the pending upload.
+
+### Recently Deleted and blob cleanup
+
+Open **Settings → Recently Deleted** to restore an entry, permanently delete it, or empty the list. Soft deletion hides the entry and preserves its attachments. Restoration keeps the original entry ID and makes its attachments available again.
+
+Permanent entry deletion and emptying Recently Deleted queue the associated blobs for removal. Deleting an individual attachment also queues its blob. The cleanup worker retries failed deletions.
+
+## Favourites and storage
+
+Winx.API stores favourite entry IDs in Azure Table Storage and checks entry ownership in SQLite. Each favourite uses a partition derived from the signed-in Firebase UID and the entry ID as its row key. Repeating a save targets the same row. Soft-deleted entries are hidden from favourites until restored. Permanently deleted entries are excluded from the list even if a favourite row remains.
+
+Journal entries, ownership and media metadata stay in SQLite at `/home/winx.db` in Azure. This change adds no SQLite migration and preserves the existing database and blob attachments. The Android app imports eligible device-local favourites on the first successful cloud refresh, then caches cloud favourites per account for viewing when disconnected. Changing favourites requires a connection.
 
 ## Authentication
 
@@ -165,7 +196,7 @@ Winx supports two sign-in paths:
 
 ## Localisation
 
-The app includes a lightweight, in-app translation layer (`WinxLanguage.kt`) that swaps UI strings between **English** and **isiZulu**, toggled from the Settings → Language screen without requiring an app restart.
+The app includes a lightweight, in-app translation layer (`WinxLanguage.kt`) that swaps UI strings between **English**, **isiZulu**, and **Afrikaans** on supported screens, toggled from the Settings → Language screen without requiring an app restart.
 
 ## Continuous Integration
 
@@ -182,7 +213,8 @@ dotnet test .\Winx.API.Tests\Winx.API.Tests.csproj --configuration Release
 
 ## Known Limitations
 
-- Media files are referenced by file name/path rather than uploaded as binary content to the API.
+- Legacy media records created from local file paths may only open on the device that selected the file.
+- Upload clients that omit the optional `Idempotency-Key` can create duplicates if they retry after losing the original response.
 
 
 Group project for **PROG7314 / OPSC7312** at The Independent Institute of Education (IIE).

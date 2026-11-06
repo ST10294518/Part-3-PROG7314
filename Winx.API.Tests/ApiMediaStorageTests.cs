@@ -8,6 +8,7 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Winx.API.Data;
 using Winx.API.Models;
 using Xunit;
@@ -97,6 +98,10 @@ public partial class ApiAuthenticationTests
             using var hiddenContent = await owner.GetAsync(contentUrl);
             Assert.Equal(HttpStatusCode.NotFound, hiddenContent.StatusCode);
 
+            using var deletedEntryForm = CreateUploadForm(bytes);
+            using var uploadToDeletedEntry = await owner.PostAsync(uploadUrl, deletedEntryForm);
+            Assert.Equal(HttpStatusCode.NotFound, uploadToDeletedEntry.StatusCode);
+
             var retainedEntry = await db.TravelEntries
                 .AsNoTracking()
                 .SingleAsync(item => item.Id == entry.Id);
@@ -183,6 +188,97 @@ public partial class ApiAuthenticationTests
         Assert.Equal(stored.BlobName, pending.BlobName);
     }
 
+    [Fact]
+    public async Task UploadRetry_RecoversFromFailureAndReusesCompletedAttachment()
+    {
+        var connectionString =
+            $"Data Source=winx-upload-retry-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Pooling=False";
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        var container = new InMemoryBlobContainer { FailNextUpload = true };
+        using var app = new WinxApiFactory(connectionString, container);
+        using var client = app.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", app.CreateToken(expired: false));
+        client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        using var created = await client.PostAsJsonAsync("/api/Entries", new
+        {
+            Title = "Upload retry test",
+            Location = "Durban",
+            Country = "South Africa",
+            Date = DateTime.UtcNow,
+            Rating = 4
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var entry = await created.Content.ReadFromJsonAsync<TravelEntry>();
+        Assert.NotNull(entry);
+
+        var url = $"/api/Media/entry/{entry.Id}/upload";
+        var bytes = new byte[] { 1, 2, 3 };
+        using var failedForm = CreateUploadForm(bytes);
+        using var failed = await client.PostAsync(url, failedForm);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, failed.StatusCode);
+        Assert.False(await db.MediaItems.AnyAsync());
+        Assert.Equal(0, container.BlobCount);
+
+        using var retryForm = CreateUploadForm(bytes);
+        using var retry = await client.PostAsync(url, retryForm);
+        Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
+        var saved = await retry.Content.ReadFromJsonAsync<MediaItem>();
+        Assert.NotNull(saved);
+
+        // Simulate the Android client losing the successful upload response.
+        using var replayForm = CreateUploadForm(bytes);
+        using var replay = await client.PostAsync(url, replayForm);
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        var replayed = await replay.Content.ReadFromJsonAsync<MediaItem>();
+        Assert.NotNull(replayed);
+        Assert.Equal(saved.Id, replayed.Id);
+        Assert.Equal(saved.Id, await db.MediaItems.Select(item => item.Id).SingleAsync());
+        Assert.Equal(1, container.BlobCount);
+    }
+
+    [Fact]
+    public async Task BlobCleanup_RetainsFailedDeletionAndRetries()
+    {
+        var connectionString =
+            $"Data Source=winx-cleanup-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Pooling=False";
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        var container = new InMemoryBlobContainer { FailNextDelete = true };
+        using var app = new WinxApiFactory(connectionString, container);
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        const string blobName = "cleanup-test";
+        using var blobContents = new MemoryStream(new byte[] { 1 });
+        await container.GetBlobClient(blobName).UploadAsync(blobContents, new BlobUploadOptions
+        {
+            HttpHeaders = new BlobHttpHeaders { ContentType = "image/png" }
+        });
+        db.PendingBlobDeletions.Add(new PendingBlobDeletion { BlobName = blobName });
+        await db.SaveChangesAsync();
+
+        using var worker = new BlobDeletionWorker(
+            app.Services.GetRequiredService<IServiceScopeFactory>(), container,
+            NullLogger<BlobDeletionWorker>.Instance);
+
+        await worker.ProcessPendingDeletionsAsync(CancellationToken.None);
+        Assert.Equal(1, container.BlobCount);
+        Assert.True(await db.PendingBlobDeletions.AnyAsync());
+
+        await worker.ProcessPendingDeletionsAsync(CancellationToken.None);
+        Assert.Equal(0, container.BlobCount);
+        Assert.False(await db.PendingBlobDeletions.AnyAsync());
+    }
+
     private static MultipartFormDataContent CreateUploadForm(byte[] bytes)
     {
         var form = new MultipartFormDataContent();
@@ -194,33 +290,53 @@ public partial class ApiAuthenticationTests
     {
         private readonly ConcurrentDictionary<string, (byte[] Bytes, string ContentType)> _blobs = new();
 
+        public bool FailNextUpload { get; set; }
+        public bool FailNextDelete { get; set; }
+        public int BlobCount => _blobs.Count;
+
         public override BlobClient GetBlobClient(string blobName) =>
-            new InMemoryBlobClient(_blobs, blobName);
-    }
+            new InMemoryBlobClient(this, blobName);
 
-    private sealed class InMemoryBlobClient(
-        ConcurrentDictionary<string, (byte[] Bytes, string ContentType)> blobs,
-        string blobName) : BlobClient
-    {
-        public override async Task<Response<BlobContentInfo>> UploadAsync(
-            Stream content, BlobUploadOptions options, CancellationToken cancellationToken = default)
+        private sealed class InMemoryBlobClient(InMemoryBlobContainer container, string blobName) : BlobClient
         {
-            using var buffer = new MemoryStream();
-            await content.CopyToAsync(buffer, cancellationToken);
-            blobs[blobName] = (buffer.ToArray(), options.HttpHeaders.ContentType);
-            return new TestResponse<BlobContentInfo>(BlobsModelFactory.BlobContentInfo());
-        }
+            public override async Task<Response<BlobContentInfo>> UploadAsync(
+                Stream content, BlobUploadOptions options, CancellationToken cancellationToken = default)
+            {
+                using var buffer = new MemoryStream();
+                await content.CopyToAsync(buffer, cancellationToken);
+                container._blobs[blobName] = (buffer.ToArray(), options.HttpHeaders.ContentType);
+                if (container.FailNextUpload)
+                {
+                    container.FailNextUpload = false;
+                    throw new RequestFailedException(503, "Simulated interrupted upload.");
+                }
+                return new TestResponse<BlobContentInfo>(BlobsModelFactory.BlobContentInfo());
+            }
 
-        public override Task<Response<BlobProperties>> GetPropertiesAsync(
-            BlobRequestConditions? conditions = null, CancellationToken cancellationToken = default)
-        {
-            var properties = BlobsModelFactory.BlobProperties(contentType: blobs[blobName].ContentType);
-            return Task.FromResult<Response<BlobProperties>>(new TestResponse<BlobProperties>(properties));
-        }
+            public override Task<Response<bool>> DeleteIfExistsAsync(
+                DeleteSnapshotsOption snapshotsOption = default, BlobRequestConditions? conditions = null,
+                CancellationToken cancellationToken = default)
+            {
+                if (container.FailNextDelete)
+                {
+                    container.FailNextDelete = false;
+                    throw new RequestFailedException(503, "Simulated cleanup failure.");
+                }
+                return Task.FromResult<Response<bool>>(
+                    new TestResponse<bool>(container._blobs.TryRemove(blobName, out _)));
+            }
 
-        public override Task<Stream> OpenReadAsync(
-            BlobOpenReadOptions options, CancellationToken cancellationToken = default) =>
-            Task.FromResult<Stream>(new MemoryStream(blobs[blobName].Bytes, writable: false));
+            public override Task<Response<BlobProperties>> GetPropertiesAsync(
+                BlobRequestConditions? conditions = null, CancellationToken cancellationToken = default)
+            {
+                var properties = BlobsModelFactory.BlobProperties(contentType: container._blobs[blobName].ContentType);
+                return Task.FromResult<Response<BlobProperties>>(new TestResponse<BlobProperties>(properties));
+            }
+
+            public override Task<Stream> OpenReadAsync(
+                BlobOpenReadOptions options, CancellationToken cancellationToken = default) =>
+                Task.FromResult<Stream>(new MemoryStream(container._blobs[blobName].Bytes, writable: false));
+        }
     }
 
     private sealed class TestResponse<T>(T value) : Response<T>
