@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.MediaController
 import android.widget.VideoView
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -87,13 +88,15 @@ import com.winx.app.ui.theme.WinxWhite
 @Composable
 fun EntryScreen(
     onCountriesClick: () -> Unit = {},
-    onSaveClick: (TravelEntry) -> Unit = {},
+    onSaveClick: (TravelEntry?, List<Uri>) -> Unit = { _, _ -> },
     onCancelClick: () -> Unit = {},
 
     // Selected country can be supplied by the Countries screen/navigation.
     selectedCountry: String = "",
     isSaving: Boolean = false,
-    saveError: String? = null
+    saveError: String? = null,
+    entrySaved: Boolean = false,
+    uploadedMediaUris: List<String> = emptyList()
 ) {
 
     // -------------------------------------------------------------
@@ -219,6 +222,36 @@ fun EntryScreen(
             }
         }
 
+
+    BackHandler(enabled = isSaving || entrySaved) { }
+
+    if (entrySaved) {
+        val pending = (selectedPictures + selectedVideos).distinct()
+            .filterNot { it.toString() in uploadedMediaUris }
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(T("Entry saved"))
+            if (isSaving) {
+                Text(T("Uploading attachments..."))
+            }
+            if (saveError != null) {
+                Text(T(saveError), color = Color.Red)
+            }
+            Button(
+                enabled = !isSaving && pending.isNotEmpty(),
+                onClick = { onSaveClick(null, pending) }
+            ) {
+                Text(T("Retry remaining attachments"))
+            }
+            TextButton(enabled = !isSaving, onClick = onCancelClick) {
+                Text(T("Finish without remaining attachments"))
+            }
+        }
+        return
+    }
 
     // -------------------------------------------------------------
     // MAIN SCREEN
@@ -969,7 +1002,7 @@ fun EntryScreen(
 
             if (selectedPictures.isNotEmpty() || selectedVideos.isNotEmpty()) {
                 Text(
-                    text = T("Attachments are kept in this draft. Saving them requires the media upload integration."),
+                    text = T("Attachments will upload after the entry is saved."),
                     color = WinxDarkBlue
                 )
                 TextButton(
@@ -1066,9 +1099,6 @@ fun EntryScreen(
 
                         validationError = when {
 
-                            selectedPictures.isNotEmpty() || selectedVideos.isNotEmpty() ->
-                                "Media upload is not connected yet. Your selections are kept in this draft. Remove attachments to save a text entry."
-
                             title.isBlank() ->
                                 "Please enter an entry title."
 
@@ -1098,7 +1128,7 @@ fun EntryScreen(
                                 notes = notes.trim()
                             )
 
-                            onSaveClick(newEntry)
+                            onSaveClick(newEntry, (selectedPictures + selectedVideos).distinct())
                         }
                     },
                     modifier = Modifier

@@ -1,3 +1,5 @@
+using Azure.Identity;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -51,6 +53,15 @@ builder.Services.AddAuthorization(options =>
 
 // Register API controllers
 builder.Services.AddControllers();
+
+var mediaContainerUri = builder.Configuration["MediaStorage:ContainerUri"];
+if (!string.IsNullOrWhiteSpace(mediaContainerUri))
+{
+    builder.Services.AddSingleton(_ => new BlobContainerClient(
+        new Uri(mediaContainerUri, UriKind.Absolute),
+        new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned)));
+    builder.Services.AddHostedService<BlobDeletionWorker>();
+}
 
 // Register SQLite database
 builder.Services.AddDbContext<AppDbContext>(options =>

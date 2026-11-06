@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Winx.API.Models
 {
     public class MediaItem
@@ -11,6 +13,9 @@ namespace Winx.API.Models
         public string FileName { get; set; } = string.Empty;
 
         public string FilePath { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public string? BlobName { get; set; }
 
         public TravelEntry? TravelEntry { get; set; }
     }
