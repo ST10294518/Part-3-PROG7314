@@ -60,4 +60,10 @@ interface WinxApiService {
 
     @DELETE("api/Entries/deleted")
     suspend fun emptyDeletedEntries(@Header("Authorization") authorization: String): Response<Unit>
+    // Dedicated endpoint: an older deployment returns 404 rather than creating duplicates.
+    @POST("api/Entries/offline")
+    suspend fun createOfflineEntry(
+        @Header("Authorization") authorization: String,
+        @Body entry: TravelEntryDto
+    ): Response<TravelEntryDto>
 }

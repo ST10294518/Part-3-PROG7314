@@ -62,7 +62,8 @@ fun EntriesScreen(
     entries: List<TravelEntry> = emptyList(),
     onBack: () -> Unit = {},
     onAddEntryClick: () -> Unit = {},
-    onEntryClick: (TravelEntry) -> Unit = {}
+    onEntryClick: (TravelEntry) -> Unit = {},
+    onOfflineClick: () -> Unit = {}
 ) {
 
     val context = LocalContext.current
@@ -201,6 +202,14 @@ fun EntriesScreen(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
             )
+        }
+
+        if (accountUid != null) {
+            Button(
+                onClick = onOfflineClick,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = WinxBlue, contentColor = WinxWhite)
+            ) { Text("Offline Journal") }
         }
 
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {

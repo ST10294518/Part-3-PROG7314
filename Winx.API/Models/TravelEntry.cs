@@ -6,6 +6,9 @@ namespace Winx.API.Models
     {
         public int Id { get; set; }
 
+        // Stable identifier supplied only by the dedicated offline-create endpoint.
+        public string? ClientOperationId { get; set; }
+
         // Soft deletion preserves the original ID and associated media for restoration.
         public bool IsDeleted { get; set; }
 

@@ -75,6 +75,7 @@ public class EntriesController : ControllerBase
         entry.Id = 0;
         entry.OwnerUid = OwnerUid;
         entry.IsDeleted = false;
+        entry.ClientOperationId = null;
 
         // Media is created through the owner-checked media endpoint.
         entry.MediaItems = new List<MediaItem>();
@@ -87,6 +88,58 @@ public class EntriesController : ControllerBase
             new { id = entry.Id },
             entry
         );
+    }
+
+    // Idempotent creation: the receipt and entry are committed together.
+    [HttpPost("offline")]
+    public async Task<ActionResult<TravelEntry>> CreateOfflineEntry(TravelEntry entry)
+    {
+        if (!Guid.TryParse(entry.ClientOperationId, out var operationId) ||
+            entry.Rating < 1 || entry.Rating > 5 || string.IsNullOrWhiteSpace(entry.Title))
+        {
+            return BadRequest(new { message = "A valid operation ID, title and rating are required." });
+        }
+        var uid = OwnerUid;
+        var key = operationId.ToString("D");
+        var receipt = await _context.OfflineCreateReceipts.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.OwnerUid == uid && r.OperationId == key);
+        if (receipt != null)
+        {
+            var previous = await OwnedEntries.AsNoTracking().FirstOrDefaultAsync(e => e.Id == receipt.EntryId);
+            if (previous == null) return StatusCode(410, new { message = "The original entry was permanently deleted." });
+            return Ok(previous); // Never overwrite a later cloud edit on retry.
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        entry.Id = 0;
+        entry.OwnerUid = uid;
+        entry.ClientOperationId = key;
+        entry.IsDeleted = false;
+        entry.MediaItems = new List<MediaItem>();
+        _context.TravelEntries.Add(entry);
+        try
+        {
+            await _context.SaveChangesAsync();
+            _context.OfflineCreateReceipts.Add(new OfflineCreateReceipt
+            {
+                OwnerUid = uid, OperationId = key, EntryId = entry.Id
+            });
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (DbUpdateException)
+        {
+            await transaction.RollbackAsync();
+            _context.ChangeTracker.Clear();
+            // A concurrent retry can win the database unique-index race.
+            receipt = await _context.OfflineCreateReceipts.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.OwnerUid == uid && r.OperationId == key);
+            if (receipt == null) throw;
+            var previous = await OwnedEntries.AsNoTracking().FirstOrDefaultAsync(e => e.Id == receipt.EntryId);
+            if (previous == null) return StatusCode(410, new { message = "The original entry was permanently deleted." });
+            return Ok(previous);
+        }
+        return CreatedAtAction(nameof(GetEntry), new { id = entry.Id }, entry);
     }
 
     [HttpPut("{id:int}")]
