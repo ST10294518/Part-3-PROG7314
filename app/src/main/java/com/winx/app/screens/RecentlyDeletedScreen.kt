@@ -1,5 +1,6 @@
 ﻿package com.winx.app.screens
 
+import com.winx.app.utils.T
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -73,13 +74,13 @@ fun RecentlyDeletedScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Recently Deleted")
+                    Text(T("Recently Deleted"))
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = T("Back")
                         )
                     }
                 }
@@ -96,13 +97,13 @@ fun RecentlyDeletedScreen(
         ) {
 
             Text(
-                text = "Recently deleted items are kept here until permanently removed."
+                text = T("Recently deleted items are kept here until permanently removed.")
             )
 
             if (deletedItems.isEmpty()) {
 
                 Text(
-                    text = "Your Recently Deleted folder is empty."
+                    text = T("Your Recently Deleted folder is empty.")
                 )
 
             } else {
@@ -121,7 +122,7 @@ fun RecentlyDeletedScreen(
 
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Deleted"
+                                contentDescription = T("Deleted")
                             )
 
                             Text(
@@ -137,7 +138,7 @@ fun RecentlyDeletedScreen(
                                     saveItems()
                                 }
                             ) {
-                                Text("Restore")
+                                Text(T("Restore"))
                             }
                         }
                     }
@@ -149,7 +150,7 @@ fun RecentlyDeletedScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Empty Deleted Items")
+                    Text(T("Empty Deleted Items"))
                 }
             }
         }
@@ -162,11 +163,11 @@ fun RecentlyDeletedScreen(
                 showEmptyDialog = false
             },
             title = {
-                Text("Empty Recently Deleted?")
+                Text(T("Empty Recently Deleted?"))
             },
             text = {
                 Text(
-                    "This will permanently remove all items from the Recently Deleted list."
+                    T("This will permanently remove all items from the Recently Deleted list.")
                 )
             },
             confirmButton = {
@@ -177,7 +178,7 @@ fun RecentlyDeletedScreen(
                         showEmptyDialog = false
                     }
                 ) {
-                    Text("Delete All")
+                    Text(T("Delete All"))
                 }
             },
             dismissButton = {
@@ -186,7 +187,7 @@ fun RecentlyDeletedScreen(
                         showEmptyDialog = false
                     }
                 ) {
-                    Text("Cancel")
+                    Text(T("Cancel"))
                 }
             }
         )

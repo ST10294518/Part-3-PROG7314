@@ -1,5 +1,6 @@
 ﻿package com.winx.app.screens
 
+import com.winx.app.utils.T
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,13 +30,13 @@ fun AboutUsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("About Us")
+                    Text(T("About Us"))
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = T("Back")
                         )
                     }
                 }
@@ -55,58 +56,58 @@ fun AboutUsScreen(
         ) {
 
             Text(
-                text = "WINX",
+                text = T("WINX"),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "Our Story",
+                text = T("Our Story"),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
                 text =
-                    "WINX was created for explorers, food lovers, and memory collectors. Every trip is more than a destination — it is a collection of moments, flavours, places and experiences worth remembering."
+                    T("WINX was created for explorers, food lovers, and memory collectors. Every trip is more than a destination — it is a collection of moments, flavours, places and experiences worth remembering.")
             )
 
             Text(
-                text = "Our Mission",
+                text = T("Our Mission"),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
                 text =
-                    "Our mission is to help users capture their journeys, organise their travel memories and keep meaningful experiences available for the future."
+                    T("Our mission is to help users capture their journeys, organise their travel memories and keep meaningful experiences available for the future.")
             )
 
             Text(
-                text = "Why We Exist",
+                text = T("Why We Exist"),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
                 text =
-                    "Every trip has a story worth telling. WINX provides a place to document experiences, discover places and build a personal collection of memories."
+                    T("Every trip has a story worth telling. WINX provides a place to document experiences, discover places and build a personal collection of memories.")
             )
 
             Text(
-                text = "Features",
+                text = T("Features"),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
                 text =
-                    "• Travel entries\n• Countries and destinations\n• Photos and videos\n• Calendar planning\n• Cloud API communication\n• Personal settings and security"
+                    T("• Travel entries\n• Countries and destinations\n• Photos and videos\n• Calendar planning\n• Cloud API communication\n• Personal settings and security")
             )
 
             Text(
                 text =
-                    "Thank you for being part of the WINX community."
+                    T("Thank you for being part of the WINX community.")
             )
         }
     }

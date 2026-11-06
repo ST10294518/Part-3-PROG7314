@@ -1,5 +1,6 @@
 package com.winx.app.screens
 
+import com.winx.app.utils.T
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,7 +88,7 @@ fun CountriesScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Add Country",
+                text = T("Add Country"),
                 color = WinxWhite,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -99,7 +100,7 @@ fun CountriesScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
+                    contentDescription = T("Close"),
                     tint = WinxWhite
                 )
             }
@@ -112,7 +113,7 @@ fun CountriesScreen(
         ) {
 
             Text(
-                text = "Choose a country",
+                text = T("Choose a country"),
                 color = WinxDarkBlue,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
@@ -121,7 +122,7 @@ fun CountriesScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Select the country connected to this entry.",
+                text = T("Select the country connected to this entry."),
                 color = Color.Gray,
                 fontSize = 14.sp
             )
@@ -136,12 +137,12 @@ fun CountriesScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Search country")
+                    Text(T("Search country"))
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search"
+                        contentDescription = T("Search")
                     )
                 },
                 singleLine = true,
@@ -173,7 +174,7 @@ fun CountriesScreen(
                         ) {
 
                             Text(
-                                text = "Selected country",
+                                text = T("Selected country"),
                                 fontSize = 12.sp,
                                 color = Color.Gray
                             )
@@ -190,7 +191,7 @@ fun CountriesScreen(
 
                         Icon(
                             imageVector = Icons.Default.Check,
-                            contentDescription = "Selected",
+                            contentDescription = T("Selected"),
                             tint = WinxBlue
                         )
                     }
@@ -244,7 +245,7 @@ fun CountriesScreen(
                             if (country == selectedCountry) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
+                                    contentDescription = T("Selected"),
                                     tint = WinxBlue
                                 )
                             }
@@ -274,7 +275,7 @@ fun CountriesScreen(
             ) {
 
                 Text(
-                    text = "Save Country",
+                    text = T("Save Country"),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = WinxWhite

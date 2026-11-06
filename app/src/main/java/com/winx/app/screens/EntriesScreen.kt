@@ -68,27 +68,27 @@ fun EntriesScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = T("Back"),
                     tint = WinxWhite
                 )
             }
             Column(modifier = Modifier.padding(start = 4.dp)) {
                 Text(
                     text = T("My Entries"),
-                color = WinxWhite,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
-            )
+                    color = WinxWhite,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold
+                )
 
-            Spacer(
-                modifier = Modifier.height(4.dp)
-            )
+                Spacer(
+                    modifier = Modifier.height(4.dp)
+                )
 
-            Text(
-                text = T("Your travel memories"),
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp
-            )
+                Text(
+                    text = T("Your travel memories"),
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp
+                )
             }
         }
 
@@ -109,7 +109,7 @@ fun EntriesScreen(
 
                 Icon(
                     imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = "No entries",
+                    contentDescription = T("No entries"),
                     tint = WinxBlue,
                     modifier = Modifier.size(30.dp)
                 )
@@ -149,7 +149,7 @@ fun EntriesScreen(
 
                     Icon(
                         imageVector = Icons.Outlined.Add,
-                        contentDescription = "Add entry"
+                        contentDescription = T("Add entry")
                     )
 
                     Spacer(
@@ -219,7 +219,7 @@ private fun TravelEntryCard(
 
             Text(
                 text = entry.title.ifBlank {
-                    "Untitled Entry"
+                    T("Untitled Entry")
                 },
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
@@ -236,7 +236,7 @@ private fun TravelEntryCard(
 
                 Icon(
                     imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = "Location",
+                    contentDescription = T("Location"),
                     tint = WinxBlue
                 )
 
@@ -255,7 +255,7 @@ private fun TravelEntryCard(
                     } else if (entry.country.isNotBlank()) {
                         entry.country
                     } else {
-                        "Location not specified"
+                        T("Location not specified")
                     },
                     fontSize = 14.sp,
                     color = Color.Gray
@@ -268,9 +268,9 @@ private fun TravelEntryCard(
 
             Text(
                 text = if (entry.rating > 0) {
-                    "Rating: ${"★".repeat(entry.rating)}"
+                    T("Rating {0}", "★".repeat(entry.rating))
                 } else {
-                    "No rating"
+                    T("No rating")
                 },
                 fontSize = 14.sp,
                 color = WinxOrange,

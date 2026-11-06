@@ -62,6 +62,7 @@ dependencies {
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-messaging")
 
     // Google Sign-In with Credential Manager
     implementation("androidx.credentials:credentials:1.5.0")
