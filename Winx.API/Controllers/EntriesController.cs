@@ -134,6 +134,8 @@ public class EntriesController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteEntry(int id)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var entry = await OwnedEntries
             .FirstOrDefaultAsync(e => e.Id == id);
 
@@ -145,8 +147,18 @@ public class EntriesController : ControllerBase
             });
         }
 
+        var blobNames = await _context.MediaItems
+            .Where(media => media.TravelEntryId == id && media.BlobName != null && media.BlobName != "")
+            .Select(media => media.BlobName!)
+            .Distinct()
+            .ToListAsync();
+
+        _context.PendingBlobDeletions.AddRange(
+            blobNames.Select(blobName => new PendingBlobDeletion { BlobName = blobName }));
+
         _context.TravelEntries.Remove(entry);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return NoContent();
     }

@@ -14,6 +14,8 @@ namespace Winx.API.Data
 
         public DbSet<MediaItem> MediaItems { get; set; }
 
+        public DbSet<PendingBlobDeletion> PendingBlobDeletions { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

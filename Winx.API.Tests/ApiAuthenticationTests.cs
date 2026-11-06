@@ -1,3 +1,4 @@
+using Azure.Storage.Blobs;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
@@ -21,7 +22,7 @@ using Xunit;
 
 namespace Winx.API.Tests;
 
-public class ApiAuthenticationTests
+public partial class ApiAuthenticationTests
 {
     [Theory]
     [InlineData("/api/Entries")]
@@ -157,7 +158,7 @@ public class ApiAuthenticationTests
     }
 
     // TravelEntry identifies the assembly containing the Winx.API entry point.
-    private sealed class WinxApiFactory(string databaseConnectionString = "Data Source=:memory:") : WebApplicationFactory<TravelEntry>
+    private sealed class WinxApiFactory(string databaseConnectionString = "Data Source=:memory:", BlobContainerClient? blobContainer = null) : WebApplicationFactory<TravelEntry>
     {
         private const string ProjectId = "winx-integration-tests";
         private const string Issuer = "https://securetoken.google.com/" + ProjectId;
@@ -181,6 +182,12 @@ public class ApiAuthenticationTests
         {
             builder.ConfigureTestServices(services =>
             {
+                if (blobContainer is not null)
+                {
+                    services.AddSingleton(blobContainer);
+                }
+
+
                 services.Configure<JwtBearerOptions>(
                     JwtBearerDefaults.AuthenticationScheme,
                     options =>
