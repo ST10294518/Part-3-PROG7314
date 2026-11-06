@@ -73,6 +73,26 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Initialise the SQLite schema when explicitly enabled for deployment.
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var database = scope.ServiceProvider.GetRequiredService<AppDbContext>().Database;
+
+    // Use a rollback journal for the database file on App Service's shared storage.
+    await database.OpenConnectionAsync();
+    await using var command = database.GetDbConnection().CreateCommand();
+    command.CommandText = "PRAGMA journal_mode = DELETE;";
+    var journalMode = await command.ExecuteScalarAsync();
+
+    if (!string.Equals(journalMode as string, "delete", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException("Could not enable SQLite rollback journaling.");
+    }
+
+    await database.MigrateAsync();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
