@@ -460,27 +460,41 @@ private fun MediaLibraryContent(
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    var showMediaPreview by remember(item.media.id) { mutableStateOf(false) }
+                    if (showMediaPreview) {
+                        val previewRepository = remember { MediaRepository() }
+                        MediaPreviewDialog(
+                            media = item.media,
+                            repository = previewRepository,
+                            onDismiss = { showMediaPreview = false }
+                        )
+                    }
+
+                    val legacyUri = Uri.parse(item.media.filePath).takeIf { it.scheme == "content" }
                     Box(
                         modifier = Modifier
                             .size(width = 82.dp, height = 68.dp)
                             .clip(RoundedCornerShape(9.dp))
-                            .background(WinxWhite),
+                            .background(WinxWhite)
+                            .clickable(onClickLabel = "Open attachment") { showMediaPreview = true },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!isVideo) {
+                        if (!isVideo && legacyUri != null) {
                             AsyncImage(
-                                model = Uri.parse(item.media.filePath),
+                                model = legacyUri,
                                 contentDescription = item.media.fileName,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
-                        } else {
+                        } else if (isVideo) {
                             Icon(
                                 imageVector = Icons.Filled.PlayArrow,
-                                contentDescription = "Video",
+                                contentDescription = "Open video",
                                 tint = WinxBlue,
                                 modifier = Modifier.size(36.dp)
                             )
+                        } else {
+                            Text("Open", color = WinxBlue)
                         }
                     }
 

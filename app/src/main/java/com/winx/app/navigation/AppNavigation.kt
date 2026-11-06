@@ -1,5 +1,7 @@
 package com.winx.app.navigation
 
+import com.winx.app.data.remote.MediaRepository
+
 import android.util.Log
 
 import androidx.compose.material3.AlertDialog
@@ -597,8 +599,19 @@ private fun AppSessionNavigation(
 
         composable("entry") { entryBackStack ->
             val formScope = rememberCoroutineScope()
+            val mediaContext = LocalContext.current.applicationContext
+            val mediaRepository = remember { MediaRepository() }
             var isSaving by remember { mutableStateOf(false) }
             var saveError by rememberSaveable { mutableStateOf<String?>(null) }
+            var savedEntryId by rememberSaveable { mutableStateOf(0) }
+            var uploadedMediaUris by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+
+            fun showEntries() {
+                navController.navigate("entries") {
+                    popUpTo("entry") { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
             // Country belongs to this draft, rather than a global navigation variable.
             val draftCountry by entryBackStack.savedStateHandle
                 .getStateFlow("draftCountry", "")
@@ -611,26 +624,45 @@ private fun AppSessionNavigation(
                 onCountriesClick = {
                     if (!isSaving) navController.navigate("countries")
                 },
-                onSaveClick = { newEntry ->
+                entrySaved = savedEntryId > 0,
+                uploadedMediaUris = uploadedMediaUris,
+                onSaveClick = { newEntry, attachments ->
                     if (!isSaving) {
                         isSaving = true
                         saveError = null
                         formScope.launch {
                             try {
-                                val result = repository.createEntry(newEntry)
-                                ensureActive()
-                                result.onSuccess { createdEntry ->
+                                if (savedEntryId == 0) {
+                                    val draft = checkNotNull(newEntry)
+                                    val result = repository.createEntry(draft)
+                                    ensureActive()
+                                    val createdEntry = result.getOrElse { exception ->
+                                        Log.e("AppNavigation", "Failed to create entry", exception)
+                                        saveError = "Unable to save the entry. Check your connection and try again."
+                                        return@launch
+                                    }
+                                    savedEntryId = createdEntry.id
                                     entries = entries + createdEntry
                                     selectedEntry = createdEntry
                                     apiError = null
-                                    navController.navigate("entries") {
-                                        popUpTo("entry") { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                }.onFailure { exception ->
-                                    Log.e("AppNavigation", "Failed to create entry", exception)
-                                    saveError = "Unable to save the entry. Check your connection and try again."
                                 }
+
+                                for (uri in attachments) {
+                                    val uriKey = uri.toString()
+                                    if (uriKey in uploadedMediaUris) continue
+
+                                    val result = mediaRepository.uploadMedia(mediaContext, savedEntryId, uri)
+                                    ensureActive()
+                                    result.getOrElse { exception ->
+                                        Log.e("AppNavigation", "Failed to upload an attachment", exception)
+                                        saveError = "Entry saved. Attachment upload failed: " +
+                                            (exception.message ?: "Please try again.")
+                                        return@launch
+                                    }
+                                    uploadedMediaUris = ArrayList(uploadedMediaUris).apply { add(uriKey) }
+                                }
+
+                                showEntries()
                             } finally {
                                 isSaving = false
                             }
@@ -638,7 +670,9 @@ private fun AppSessionNavigation(
                     }
                 },
                 onCancelClick = {
-                    if (!isSaving) navController.popBackStack()
+                    if (!isSaving) {
+                        if (savedEntryId > 0) showEntries() else navController.popBackStack()
+                    }
                 }
             )
         }

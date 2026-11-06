@@ -1,5 +1,8 @@
 package com.winx.app.screens
 
+import android.content.Intent
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -74,7 +77,7 @@ fun EntryDetailsScreen(
 
     val coroutineScope = rememberCoroutineScope()
 
-    var mediaItems by remember {
+    var mediaItems by remember(entry.id) {
         mutableStateOf<List<MediaItemDto>>(emptyList())
     }
 
@@ -85,7 +88,7 @@ fun EntryDetailsScreen(
     LaunchedEffect(entry.id) {
         mediaRepository.getMediaForEntry(entry.id)
             .onSuccess { media ->
-                mediaItems = media
+                mediaItems = (media + mediaItems).distinctBy { it.id }
                 mediaError = null
             }
             .onFailure { exception ->
@@ -93,71 +96,63 @@ fun EntryDetailsScreen(
             }
     }
 
-    val photoPickerLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri: Uri? ->
+    val mediaContext = LocalContext.current.applicationContext
+    var pendingAttachment by rememberSaveable(entry.id) { mutableStateOf<String?>(null) }
+    var uploadError by rememberSaveable(entry.id) { mutableStateOf<String?>(null) }
+    var isUploading by remember(entry.id) { mutableStateOf(false) }
 
-            if (uri != null) {
+    fun uploadPendingAttachment() {
+        val pending = pendingAttachment ?: return
+        if (isUploading) return
 
-                val fileName = uri.lastPathSegment
-                    ?: "photo_${System.currentTimeMillis()}.jpg"
-
-                coroutineScope.launch {
-
-                    mediaRepository.createMedia(
-                        MediaItemDto(
-                            travelEntryId = entry.id,
-                            mediaType = "Photo",
-                            fileName = fileName,
-                            filePath = uri.toString()
-                        )
-                    ).onSuccess { createdMedia ->
-
-                        mediaItems = mediaItems + createdMedia
-                        mediaError = null
-
-                    }.onFailure { exception ->
-
-                        mediaError =
-                            exception.message ?: "Failed to save photo."
+        isUploading = true
+        uploadError = null
+        coroutineScope.launch {
+            try {
+                mediaRepository.uploadMedia(mediaContext, entry.id, Uri.parse(pending))
+                    .onSuccess { uploaded ->
+                        mediaItems = (mediaItems + uploaded).distinctBy { it.id }
+                        pendingAttachment = null
                     }
-                }
+                    .onFailure { error ->
+                        uploadError = error.message ?: "Unable to upload the attachment."
+                    }
+            } finally {
+                isUploading = false
             }
         }
+    }
 
-    val videoPickerLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri: Uri? ->
+    fun selectAttachment(uri: Uri?) {
+        if (uri == null || pendingAttachment != null) return
 
-            if (uri != null) {
-
-                val fileName = uri.lastPathSegment
-                    ?: "video_${System.currentTimeMillis()}.mp4"
-
-                coroutineScope.launch {
-
-                    mediaRepository.createMedia(
-                        MediaItemDto(
-                            travelEntryId = entry.id,
-                            mediaType = "Video",
-                            fileName = fileName,
-                            filePath = uri.toString()
-                        )
-                    ).onSuccess { createdMedia ->
-
-                        mediaItems = mediaItems + createdMedia
-                        mediaError = null
-
-                    }.onFailure { exception ->
-
-                        mediaError =
-                            exception.message ?: "Failed to save video."
-                    }
-                }
-            }
+        try {
+            mediaContext.contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: SecurityException) {
+            uploadError = "Could not retain access to this file. Select it again."
+            return
         }
+
+        pendingAttachment = uri.toString()
+        uploadPendingAttachment()
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri -> selectAttachment(uri) }
+    )
+
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri -> selectAttachment(uri) }
+    )
+
+    var previewMedia by remember(entry.id) { mutableStateOf<MediaItemDto?>(null) }
+    previewMedia?.let { media ->
+        MediaPreviewDialog(media, mediaRepository, onDismiss = { previewMedia = null })
+    }
 
     val formattedDate = try {
 
@@ -210,6 +205,25 @@ fun EntryDetailsScreen(
                 fontSize = 23.sp,
                 fontWeight = FontWeight.Bold
             )
+        }
+
+        if (isUploading || pendingAttachment != null || uploadError != null) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                if (isUploading) {
+                    Text("Uploading attachment...")
+                } else {
+                    Text(uploadError ?: "Attachment is ready to retry.")
+                    if (pendingAttachment != null) {
+                        Row {
+                            TextButton(onClick = { uploadPendingAttachment() }) { Text("Retry") }
+                            TextButton(onClick = {
+                                pendingAttachment = null
+                                uploadError = null
+                            }) { Text("Discard") }
+                        }
+                    }
+                }
+            }
         }
 
         LazyColumn(
@@ -455,7 +469,7 @@ fun EntryDetailsScreen(
 
                     Button(
                         onClick = {
-                            photoPickerLauncher.launch("image/*")
+                            if (pendingAttachment == null) photoPickerLauncher.launch(arrayOf("image/jpeg", "image/png", "image/webp"))
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -478,7 +492,7 @@ fun EntryDetailsScreen(
 
                     Button(
                         onClick = {
-                            videoPickerLauncher.launch("video/*")
+                            if (pendingAttachment == null) videoPickerLauncher.launch(arrayOf("video/mp4"))
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -586,6 +600,10 @@ fun EntryDetailsScreen(
                                     fontSize = 13.sp,
                                     color = Color.Gray
                                 )
+                            }
+
+                            TextButton(onClick = { previewMedia = media }) {
+                                Text("Open")
                             }
 
                             TextButton(
