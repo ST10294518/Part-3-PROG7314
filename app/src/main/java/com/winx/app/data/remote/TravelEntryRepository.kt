@@ -254,6 +254,37 @@ class TravelEntryRepository {
         }
     }
 
+    suspend fun getDeletedEntries(): Result<List<TravelEntry>> = try {
+        val response = session.request { auth -> api.getDeletedEntries(auth) }
+        Result.success(response.map { it.toTravelEntry() })
+    } catch (exception: Exception) {
+        if (exception is CancellationException) throw exception
+        Result.failure(exception)
+    }
+
+    suspend fun restoreEntry(id: Int): Result<Unit> = deletedAction {
+        session.request { auth -> api.restoreEntry(auth, id) }
+    }
+
+    suspend fun permanentlyDeleteEntry(id: Int): Result<Unit> = deletedAction {
+        session.request { auth -> api.permanentlyDeleteEntry(auth, id) }
+    }
+
+    suspend fun emptyDeletedEntries(): Result<Unit> = deletedAction {
+        session.request { auth -> api.emptyDeletedEntries(auth) }
+    }
+
+    private suspend fun deletedAction(
+        request: suspend () -> retrofit2.Response<Unit>
+    ): Result<Unit> = try {
+        val response = request()
+        if (response.isSuccessful) Result.success(Unit)
+        else Result.failure(Exception("Unable to update Recently Deleted. HTTP ${response.code()}"))
+    } catch (exception: Exception) {
+        if (exception is CancellationException) throw exception
+        Result.failure(exception)
+    }
+
     private fun TravelEntryDto.toTravelEntry(): TravelEntry {
 
         return TravelEntry(

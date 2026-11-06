@@ -22,6 +22,8 @@ public class EntriesController : ControllerBase
         }
     }
 
+    private IQueryable<TravelEntry> ActiveEntries => OwnedEntries.Where(e => !e.IsDeleted);
+
     public EntriesController(AppDbContext context)
     {
         _context = context;
@@ -31,7 +33,7 @@ public class EntriesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TravelEntry>>> GetEntries()
     {
-        var entries = await OwnedEntries
+        var entries = await ActiveEntries
             .AsNoTracking()
             .ToListAsync();
 
@@ -42,7 +44,7 @@ public class EntriesController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<TravelEntry>> GetEntry(int id)
     {
-        var entry = await OwnedEntries
+        var entry = await ActiveEntries
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == id);
 
@@ -71,6 +73,7 @@ public class EntriesController : ControllerBase
 
         entry.Id = 0;
         entry.OwnerUid = OwnerUid;
+        entry.IsDeleted = false;
 
         // Media must be created through the owner-checked media endpoint.
         entry.MediaItems = new List<MediaItem>();
@@ -107,7 +110,7 @@ public class EntriesController : ControllerBase
             });
         }
 
-        var existingEntry = await OwnedEntries
+        var existingEntry = await ActiveEntries
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (existingEntry == null)
@@ -134,7 +137,7 @@ public class EntriesController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteEntry(int id)
     {
-        var entry = await OwnedEntries
+        var entry = await ActiveEntries
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entry == null)
@@ -145,9 +148,45 @@ public class EntriesController : ControllerBase
             });
         }
 
-        _context.TravelEntries.Remove(entry);
+        entry.IsDeleted = true;
         await _context.SaveChangesAsync();
 
+        return NoContent();
+    }
+    // Deleted entries remain account-owned and are never returned in the active list.
+    [HttpGet("deleted")]
+    public async Task<ActionResult<IEnumerable<TravelEntry>>> GetDeletedEntries()
+    {
+        return Ok(await OwnedEntries.Where(e => e.IsDeleted)
+            .AsNoTracking().OrderByDescending(e => e.Id).ToListAsync());
+    }
+
+    [HttpPost("{id:int}/restore")]
+    public async Task<IActionResult> RestoreEntry(int id)
+    {
+        var entry = await OwnedEntries.FirstOrDefaultAsync(e => e.Id == id && e.IsDeleted);
+        if (entry == null) return NotFound();
+        entry.IsDeleted = false;
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}/permanent")]
+    public async Task<IActionResult> PermanentlyDeleteEntry(int id)
+    {
+        var entry = await OwnedEntries.FirstOrDefaultAsync(e => e.Id == id && e.IsDeleted);
+        if (entry == null) return NotFound();
+        _context.TravelEntries.Remove(entry);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("deleted")]
+    public async Task<IActionResult> EmptyDeletedEntries()
+    {
+        var entries = await OwnedEntries.Where(e => e.IsDeleted).ToListAsync();
+        _context.TravelEntries.RemoveRange(entries);
+        await _context.SaveChangesAsync();
         return NoContent();
     }
 }
