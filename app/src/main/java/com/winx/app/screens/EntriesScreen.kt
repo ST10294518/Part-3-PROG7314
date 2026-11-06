@@ -42,6 +42,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FilterChip
 import com.google.firebase.auth.FirebaseAuth
 import com.winx.app.utils.FavouriteEntries
+import com.winx.app.utils.RandomMemoryRules
 import com.winx.app.utils.FavouriteRules
 import com.winx.app.utils.currentWinxLanguage
 import androidx.compose.ui.Alignment
@@ -73,6 +74,7 @@ fun EntriesScreen(
         onDispose { auth.removeAuthStateListener(listener) }
     }
     val accountUid = uid
+    var lastRandomEntryId by rememberSaveable(accountUid) { mutableStateOf<Int?>(null) }
     var favourites by remember(accountUid) {
         mutableStateOf(accountUid?.let { FavouriteEntries.read(context, it) } ?: emptySet<Int>())
     }
@@ -161,6 +163,44 @@ fun EntriesScreen(
                     label = { Text("${favouriteLabel("Favourites")} (${visibleIds.size})") }
                 )
             }
+        }
+
+        if (accountUid != null) {
+            Button(
+                onClick = {
+                    // Always use the current account and active entries, not the favourites filter.
+                    if (auth.currentUser?.uid == accountUid) {
+                        val pickedId = RandomMemoryRules.pickId(
+                            entries.map { it.id }, lastRandomEntryId
+                        )
+                        val memory = entries.firstOrNull { it.id == pickedId }
+                        if (memory != null) {
+                            lastRandomEntryId = memory.id
+                            onEntryClick(memory)
+                        }
+                    }
+                },
+                enabled = entries.any { it.id > 0 },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WinxDarkBlue,
+                    contentColor = WinxWhite,
+                    disabledContainerColor = Color(0xFFE0E0E0),
+                    disabledContentColor = WinxDarkBlue
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(favouriteLabel("Surprise me"), fontWeight = FontWeight.Bold)
+            }
+            Text(
+                text = favouriteLabel(
+                    if (entries.any { it.id > 0 }) "Rediscover a random travel memory."
+                    else "Add an entry to unlock random memories."
+                ),
+                color = WinxDarkBlue,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+            )
         }
 
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -412,6 +452,9 @@ private fun TravelEntryCard(
 private fun favouriteLabel(text: String): String {
     val translations = when (currentWinxLanguage()) {
         "isiZulu (Zulu)", "zu", "zu-ZA" -> mapOf(
+            "Surprise me" to "Ngimangaze",
+            "Rediscover a random travel memory." to "Phinda uthole inkumbulo yohambo ekhethwe ngokungahleliwe.",
+            "Add an entry to unlock random memories." to "Engeza okufakiwe ukuze uvule izinkumbulo ezingahleliwe.",
             "All entries" to "Konke okufakiwe",
             "Favourites" to "Izintandokazi",
             "No favourites yet" to "Azikho izintandokazi okwamanje",
@@ -421,6 +464,9 @@ private fun favouriteLabel(text: String): String {
             "Please sign in to view your entries." to "Sicela ungene ukuze ubone okufakiwe kwakho."
         )
         "Afrikaans", "af", "af-ZA" -> mapOf(
+            "Surprise me" to "Verras my",
+            "Rediscover a random travel memory." to "Herontdek 'n ewekansige reisherinnering.",
+            "Add an entry to unlock random memories." to "Voeg 'n inskrywing by om ewekansige herinneringe te ontsluit.",
             "All entries" to "Alle inskrywings",
             "Favourites" to "Gunstelinge",
             "No favourites yet" to "Nog geen gunstelinge nie",
@@ -442,3 +488,4 @@ private fun favouriteChipColors() = FilterChipDefaults.filterChipColors(
     selectedContainerColor = WinxDarkBlue,
     selectedLabelColor = WinxWhite
 )
+
