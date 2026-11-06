@@ -1,11 +1,13 @@
 package com.winx.app.data.remote
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import com.winx.app.screens.TravelEntry
 
 class TravelEntryRepository {
 
     private val api = RetrofitClient.api
+    private val session = FirebaseRequestSession()
 
     companion object {
         private const val TAG = "TravelEntryRepository"
@@ -20,7 +22,7 @@ class TravelEntryRepository {
 
             Log.d(TAG, "GET /api/Entries")
 
-            val response = api.getEntries()
+            val response = session.request { authorization -> api.getEntries(authorization) }
 
             Log.d(
                 TAG,
@@ -32,6 +34,7 @@ class TravelEntryRepository {
             )
 
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 TAG,
@@ -57,7 +60,7 @@ class TravelEntryRepository {
 
             val dto = entry.toDto()
 
-            val response = api.createEntry(dto)
+            val response = session.request { authorization -> api.createEntry(authorization, dto) }
 
             if (response.isSuccessful) {
 
@@ -101,6 +104,7 @@ class TravelEntryRepository {
             }
 
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 TAG,
@@ -124,7 +128,7 @@ class TravelEntryRepository {
                 "GET /api/Entries/$id"
             )
 
-            val response = api.getEntry(id)
+            val response = session.request { authorization -> api.getEntry(authorization, id) }
 
             Log.d(
                 TAG,
@@ -136,6 +140,7 @@ class TravelEntryRepository {
             )
 
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 TAG,
@@ -159,10 +164,9 @@ class TravelEntryRepository {
                 "PUT /api/Entries/${entry.id}"
             )
 
-            val response = api.updateEntry(
-                entry.id,
-                entry.toDto()
-            )
+            val response = session.request { authorization ->
+                api.updateEntry(authorization, entry.id, entry.toDto())
+            }
 
             if (response.isSuccessful) {
 
@@ -188,6 +192,7 @@ class TravelEntryRepository {
             }
 
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 TAG,
@@ -211,7 +216,7 @@ class TravelEntryRepository {
                 "DELETE /api/Entries/$id"
             )
 
-            val response = api.deleteEntry(id)
+            val response = session.request { authorization -> api.deleteEntry(authorization, id) }
 
             if (response.isSuccessful) {
 
@@ -237,6 +242,7 @@ class TravelEntryRepository {
             }
 
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 TAG,

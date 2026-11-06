@@ -11,6 +11,17 @@ public class EntriesController : ControllerBase
 {
     private readonly AppDbContext _context;
 
+    private string OwnerUid => User.FindFirst("sub")!.Value;
+
+    private IQueryable<TravelEntry> OwnedEntries
+    {
+        get
+        {
+            var uid = OwnerUid;
+            return _context.TravelEntries.Where(entry => entry.OwnerUid == uid);
+        }
+    }
+
     public EntriesController(AppDbContext context)
     {
         _context = context;
@@ -20,7 +31,7 @@ public class EntriesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TravelEntry>>> GetEntries()
     {
-        var entries = await _context.TravelEntries
+        var entries = await OwnedEntries
             .AsNoTracking()
             .ToListAsync();
 
@@ -31,7 +42,7 @@ public class EntriesController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<TravelEntry>> GetEntry(int id)
     {
-        var entry = await _context.TravelEntries
+        var entry = await OwnedEntries
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == id);
 
@@ -59,6 +70,10 @@ public class EntriesController : ControllerBase
         }
 
         entry.Id = 0;
+        entry.OwnerUid = OwnerUid;
+
+        // Media must be created through the owner-checked media endpoint.
+        entry.MediaItems = new List<MediaItem>();
 
         _context.TravelEntries.Add(entry);
         await _context.SaveChangesAsync();
@@ -92,7 +107,7 @@ public class EntriesController : ControllerBase
             });
         }
 
-        var existingEntry = await _context.TravelEntries
+        var existingEntry = await OwnedEntries
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (existingEntry == null)
@@ -119,7 +134,7 @@ public class EntriesController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteEntry(int id)
     {
-        var entry = await _context.TravelEntries
+        var entry = await OwnedEntries
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entry == null)

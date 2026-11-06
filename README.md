@@ -20,9 +20,11 @@ Winx is a native Android travel and food journal app built for the **PROG7314 / 
   - [Prerequisites](#prerequisites)
   - [1. Run the Winx.API Backend](#1-run-the-winxapi-backend)
   - [2. Run the Android App](#2-run-the-android-app)
+- [Azure deployment](#azure-deployment)
 - [REST API Reference](#rest-api-reference)
 - [Authentication](#authentication)
 - [Localisation](#localisation)
+- [Continuous Integration](#continuous-integration)
 - [Known Limitations](#known-limitations)
 - [Team](#team)
 
@@ -92,29 +94,47 @@ PROG7314-Part-2-Repo/
 
 ### 1. Run the Winx.API Backend
 
-```bash
-cd Winx.API
-dotnet restore
-dotnet ef database update      # applies migrations to winx.db (SQLite)
-dotnet run
+The Android app uses the hosted API by default. To run the backend locally for development, use the .NET 10 SDK and run these commands from the repository root in PowerShell.
+
+```powershell
+$firebaseProjectId = (Get-Content .\app\google-services.json -Raw | ConvertFrom-Json).project_info.project_id
+$localDb = Join-Path $env:TEMP "winx-local.db"
+
+dotnet run --project .\Winx.API\Winx.API.csproj --launch-profile http -- `
+    "--Firebase:ProjectId=$firebaseProjectId" `
+    "--ConnectionStrings:DefaultConnection=Data Source=$localDb" `
+    "--Database:MigrateOnStartup=true"
 ```
 
-By default the API listens on `http://localhost:5001` (see `Properties/launchSettings.json`). Once running, Swagger UI is available at:
-
-```
-http://localhost:5001/swagger
-```
+Local Swagger is available at http://localhost:5001/swagger. If you need to test the local backend from an Android emulator, set `BASE_URL` in `RetrofitClient.kt` to `http://10.0.2.2:5001/` for that local test.
 
 ### 2. Run the Android App
 
-1. Open the project root in Android Studio.
-2. Let Gradle sync (wrapper is included — no need to install Gradle separately).
-3. Confirm the API base URL in `RetrofitClient.kt` matches your backend:
-   ```kotlin
-   private const val BASE_URL = "http://10.0.2.2:5001/"
-   ```
-   `10.0.2.2` is the Android Emulator's alias for `localhost` on the host machine. If you're running on a **physical device**, replace it with your machine's LAN IP address (and ensure both devices are on the same network).
-4. Run the `app` configuration on an emulator or connected device (min SDK 24).
+1. Open the project root in Android Studio and let Gradle sync.
+2. Run the `app` configuration on an emulator or connected Android device.
+3. Sign in with a Winx account. The default build uses the hosted HTTPS API.
+
+## Azure deployment
+
+Winx.API runs on Azure App Service in South Africa North using .NET 10 on Linux. App Service requires HTTPS, and protected routes verify Firebase ID tokens before enforcing entry and media ownership.
+
+| App Service setting | Purpose |
+|---|---|
+| `Firebase__ProjectId` | Matches the Firebase project configured in `app/google-services.json`. |
+| `ConnectionStrings__DefaultConnection` | Points SQLite to `Data Source=/home/winx.db`. |
+| `WEBSITES_ENABLE_APP_SERVICE_STORAGE` | Enables persistent App Service storage. Set to `true`. |
+| `Database__MigrateOnStartup` | Applies EF Core migrations when enabled. It was set to `true` for initial deployment and set back to `false` after verification. |
+
+To deploy, publish `Winx.API.csproj` in `Release` for `linux-x64` as a framework-dependent build. ZIP the contents of the publish folder and upload the ZIP with `az webapp deploy --type zip`. Azure initialises the SQLite database separately from the deployment package.
+
+### Deployment verification
+
+- An unauthenticated HTTPS request to `/api/Entries` returned `401`.
+- Account A created the test entry **Azure restart test** (`201`) and read it back (`200`).
+- After restarting App Service, the same entry was still available as entry `1` (`200`).
+- The updated debug APK loaded the Azure test entry on a physical Android phone.
+
+[Hosted Winx.API](https://winx-api-part3-d9b31478.azurewebsites.net/)
 
 ## REST API Reference
 
@@ -147,9 +167,21 @@ Winx supports two sign-in paths:
 
 The app includes a lightweight, in-app translation layer (`WinxLanguage.kt`) that swaps UI strings between **English** and **isiZulu**, toggled from the Settings → Language screen without requiring an app restart.
 
+## Continuous Integration
+
+The [Android CI workflow](.github/workflows/android-ci.yml) runs on pushes and pull requests. It runs Android unit tests, builds the debug APK, and uploads the Android test report. A separate .NET 10 job runs the Winx.API integration tests for authentication and ownership.
+
+From the repository root in Windows PowerShell, run the local checks with:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
+dotnet test .\Winx.API.Tests\Winx.API.Tests.csproj --configuration Release
+```
+
+[Passing GitHub Actions run for commit `4b48b26` on `Feature/Member-1`](https://github.com/ST10294518/Part-3-PROG7314/actions/runs/42045974200)
+
 ## Known Limitations
 
-- The Retrofit base URL is currently hardcoded for local development (emulator/LAN) rather than a deployed endpoint.
 - Media files are referenced by file name/path rather than uploaded as binary content to the API.
 
 

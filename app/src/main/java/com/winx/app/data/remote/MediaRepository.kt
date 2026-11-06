@@ -1,14 +1,16 @@
 package com.winx.app.data.remote
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 
 class MediaRepository {
 
     private val api = RetrofitClient.mediaApi
+    private val session = FirebaseRequestSession()
 
     suspend fun getMediaForEntry(travelEntryId: Int): Result<List<MediaItemDto>> {
         return try {
-            val media = api.getMediaForEntry(travelEntryId)
+            val media = session.request { authorization -> api.getMediaForEntry(authorization, travelEntryId) }
 
             Log.d(
                 "MediaRepository",
@@ -17,6 +19,7 @@ class MediaRepository {
 
             Result.success(media)
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 "MediaRepository",
@@ -30,7 +33,7 @@ class MediaRepository {
 
     suspend fun createMedia(media: MediaItemDto): Result<MediaItemDto> {
         return try {
-            val response = api.createMedia(media)
+            val response = session.request { authorization -> api.createMedia(authorization, media) }
 
             if (response.isSuccessful && response.body() != null) {
 
@@ -52,6 +55,7 @@ class MediaRepository {
                 )
             }
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 "MediaRepository",
@@ -65,7 +69,7 @@ class MediaRepository {
 
     suspend fun deleteMedia(id: Int): Result<Unit> {
         return try {
-            val response = api.deleteMedia(id)
+            val response = session.request { authorization -> api.deleteMedia(authorization, id) }
 
             if (response.isSuccessful) {
 
@@ -87,6 +91,7 @@ class MediaRepository {
                 )
             }
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
 
             Log.e(
                 "MediaRepository",
@@ -107,7 +112,7 @@ class MediaRepository {
             val allMedia = mutableListOf<MediaItemDto>()
 
             for (entryId in validIds) {
-                allMedia += api.getMediaForEntry(entryId)
+                allMedia += session.request { authorization -> api.getMediaForEntry(authorization, entryId) }
             }
 
             Log.d(
@@ -117,6 +122,7 @@ class MediaRepository {
 
             Result.success(allMedia)
         } catch (exception: Exception) {
+            if (exception is CancellationException) throw exception
             Log.e(
                 "MediaRepository",
                 "Failed to load Library media",
