@@ -10,6 +10,8 @@ namespace Winx.API.Data
         {
         }
 
+        public DbSet<OfflineCreateReceipt> OfflineCreateReceipts { get; set; }
+
         public DbSet<TravelEntry> TravelEntries { get; set; }
 
         public DbSet<MediaItem> MediaItems { get; set; }
@@ -19,6 +21,18 @@ namespace Winx.API.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<OfflineCreateReceipt>()
+                .HasKey(e => new { e.OwnerUid, e.OperationId });
+            modelBuilder.Entity<OfflineCreateReceipt>()
+                .Property(e => e.OperationId).HasMaxLength(36);
+
+            modelBuilder.Entity<TravelEntry>()
+                .Property(e => e.ClientOperationId).HasMaxLength(36);
+            modelBuilder.Entity<TravelEntry>()
+                .HasIndex(e => new { e.OwnerUid, e.ClientOperationId })
+                .IsUnique()
+                .HasFilter("\"ClientOperationId\" IS NOT NULL");
 
             modelBuilder.Entity<MediaItem>()
                 .ToTable("MediaItem");
