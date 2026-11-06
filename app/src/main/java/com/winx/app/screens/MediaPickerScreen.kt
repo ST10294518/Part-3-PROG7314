@@ -1,5 +1,6 @@
 package com.winx.app.screens
 
+import com.winx.app.utils.T
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,7 +55,7 @@ fun MediaPickerScreen(
     ) {
 
         Text(
-            text = "Add Memories"
+            text = T("Add Memories")
         )
 
         Row(
@@ -67,7 +68,7 @@ fun MediaPickerScreen(
                     photoPickerLauncher.launch("image/*")
                 }
             ) {
-                Text("Add Photo")
+                Text(T("Add Photo"))
             }
 
             Button(
@@ -75,13 +76,13 @@ fun MediaPickerScreen(
                     videoPickerLauncher.launch("video/*")
                 }
             ) {
-                Text("Add Video")
+                Text(T("Add Video"))
             }
         }
 
         selectedUri?.let {
             Text(
-                text = "Selected: $it"
+                text = T("Selected: {0}", it)
             )
         }
     }

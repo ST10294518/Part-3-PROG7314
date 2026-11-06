@@ -1,5 +1,6 @@
 package com.winx.app.screens
 
+import com.winx.app.utils.T
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -41,7 +42,7 @@ fun WelcomeScreen(
 
         Image(
             painter = painterResource(id = R.drawable.winx_logo),
-            contentDescription = "Winx logo",
+            contentDescription = T("Winx logo"),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp),
@@ -51,7 +52,7 @@ fun WelcomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Every Journey is magical.\nWhere food meets adventure.",
+            text = T("Every Journey is magical.\nWhere food meets adventure."),
             fontSize = 16.sp,
             color = WinxDarkBlue,
             textAlign = TextAlign.Center,
@@ -72,7 +73,7 @@ fun WelcomeScreen(
             )
         ) {
             Text(
-                text = "Let’s begin",
+                text = T("Let’s begin"),
                 fontSize = 16.sp
             )
         }

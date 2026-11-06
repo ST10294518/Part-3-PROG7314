@@ -127,13 +127,13 @@ fun EditEntryScreen(
 
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = T("Back"),
                     tint = WinxWhite
                 )
             }
 
             Text(
-                text = "Edit Entry",
+                text = T("Edit Entry"),
                 color = WinxWhite,
                 fontSize = 23.sp,
                 fontWeight = FontWeight.Bold
@@ -153,7 +153,7 @@ fun EditEntryScreen(
         ) {
 
             Text(
-                text = "Update your memory",
+                text = T("Update your memory"),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = WinxDarkBlue
@@ -177,7 +177,7 @@ fun EditEntryScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Entry Title")
+                    Text(T("Entry Title"))
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -202,13 +202,13 @@ fun EditEntryScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Location")
+                    Text(T("Location"))
                 },
                 leadingIcon = {
 
                     Icon(
                         imageVector = Icons.Outlined.LocationOn,
-                        contentDescription = "Location"
+                        contentDescription = T("Location")
                     )
                 },
                 singleLine = true,
@@ -234,7 +234,7 @@ fun EditEntryScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Country")
+                    Text(T("Country"))
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -257,7 +257,7 @@ fun EditEntryScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Date (yyyy-MM-dd)")
+                    Text(T("Date (yyyy-MM-dd)"))
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -273,7 +273,7 @@ fun EditEntryScreen(
             // ---------------------------------------------------------
 
             Text(
-                text = "Rating",
+                text = T("Rating"),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = WinxDarkBlue
@@ -291,7 +291,7 @@ fun EditEntryScreen(
 
                     Icon(
                         imageVector = Icons.Outlined.Star,
-                        contentDescription = "Rating $star",
+                        contentDescription = T("Rating {0}", star),
                         tint = if (star <= rating) {
                             WinxOrange
                         } else {
@@ -354,7 +354,7 @@ fun EditEntryScreen(
                     .fillMaxWidth()
                     .height(130.dp),
                 label = {
-                    Text("Notes")
+                    Text(T("Notes"))
                 },
                 maxLines = 5,
                 shape = RoundedCornerShape(12.dp),
@@ -380,7 +380,7 @@ fun EditEntryScreen(
                 )
 
                 Text(
-                    text = validationError!!,
+                    text = T(validationError!!),
                     color = Color.Red,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
@@ -417,7 +417,7 @@ fun EditEntryScreen(
                 ) {
 
                     Text(
-                        text = "Cancel",
+                        text = T("Cancel"),
                         color = WinxDarkBlue
                     )
                 }
@@ -487,7 +487,7 @@ fun EditEntryScreen(
                 ) {
 
                     Text(
-                        text = if (isSaving) "Saving..." else "Update Entry",
+                        text = T(if (isSaving) "Saving..." else "Update Entry"),
                         color = WinxDarkBlue,
                         fontWeight = FontWeight.Bold
                     )

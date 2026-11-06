@@ -91,7 +91,7 @@ fun NotificationsScreen(
 
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = T("Back")
                         )
                     }
                 }
@@ -136,7 +136,7 @@ fun NotificationsScreen(
                             Icons.Default.Notifications,
 
                         contentDescription =
-                            "Notifications"
+                            T("Notifications")
                     )
 
 
@@ -201,7 +201,7 @@ fun NotificationsScreen(
                                 Icons.Default.Notifications,
 
                             contentDescription =
-                                "Notification"
+                                T("Notification")
                         )
 
 
@@ -213,11 +213,11 @@ fun NotificationsScreen(
                         ) {
 
                             Text(
-                                text = notification.first
+                                text = T(notification.first)
                             )
 
                             Text(
-                                text = notification.second
+                                text = T(notification.second)
                             )
                         }
                     }

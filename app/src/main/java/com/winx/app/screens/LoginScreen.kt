@@ -122,7 +122,7 @@ fun LoginScreen(
         ) {
             Image(
                 painter = painterResource(R.drawable.winx_logo),
-                contentDescription = "Winx logo",
+                contentDescription = T("Winx logo"),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
@@ -285,7 +285,7 @@ fun LoginScreen(
         if (loginError != null) {
 
             Text(
-                text = loginError!!,
+                text = T(loginError!!),
                 color =
                     MaterialTheme.colorScheme.error,
                 style =
@@ -307,7 +307,7 @@ fun LoginScreen(
         if (resetMessage != null) {
 
             Text(
-                text = resetMessage!!,
+                text = T(resetMessage!!),
                 color = WinxBlue,
                 style =
                     MaterialTheme.typography.bodySmall,
@@ -512,7 +512,7 @@ fun LoginScreen(
             )
 
             Text(
-                text = googleSignInError,
+                text = T(googleSignInError),
                 color =
                     MaterialTheme.colorScheme.error,
                 style =

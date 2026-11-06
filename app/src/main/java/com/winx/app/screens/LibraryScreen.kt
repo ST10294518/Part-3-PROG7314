@@ -21,11 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,6 +58,8 @@ import com.winx.app.ui.theme.WinxDarkBlue
 import com.winx.app.ui.theme.WinxLightPink
 import com.winx.app.ui.theme.WinxOrange
 import com.winx.app.ui.theme.WinxWhite
+import com.winx.app.utils.T
+import com.winx.app.utils.currentWinxLocale
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -88,8 +88,15 @@ fun LibraryScreen(
     var searchText by remember { mutableStateOf("") }
     var selectedSort by remember { mutableStateOf(LibrarySort.NEWEST) }
     var filterExpanded by remember { mutableStateOf(false) }
-    var entries by remember { mutableStateOf<List<TravelEntry>>(emptyList()) }
-    var mediaItems by remember { mutableStateOf<List<MediaItemDto>>(emptyList()) }
+
+    var entries by remember {
+        mutableStateOf<List<TravelEntry>>(emptyList())
+    }
+
+    var mediaItems by remember {
+        mutableStateOf<List<MediaItemDto>>(emptyList())
+    }
+
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var reloadKey by remember { mutableIntStateOf(0) }
@@ -105,29 +112,40 @@ fun LibraryScreen(
             .onSuccess { loadedEntries ->
                 entries = loadedEntries
 
-                mediaRepository.getMediaForEntries(loadedEntries.map { it.id })
+                mediaRepository
+                    .getMediaForEntries(loadedEntries.map { it.id })
                     .onSuccess { loadedMedia ->
                         mediaItems = loadedMedia
                         isLoading = false
                     }
                     .onFailure { error ->
                         mediaItems = emptyList()
-                        errorMessage = error.message ?: "Unable to load Library media."
+                        errorMessage =
+                            error.message ?: "Unable to load Library media."
                         isLoading = false
                     }
             }
             .onFailure { error ->
                 entries = emptyList()
                 mediaItems = emptyList()
-                errorMessage = error.message ?: "Unable to connect to the Winx REST API."
+                errorMessage =
+                    error.message ?: "Unable to connect to the Winx REST API."
                 isLoading = false
             }
     }
 
-    val entryById = remember(entries) { entries.associateBy { it.id } }
+    val entryById = remember(entries) {
+        entries.associateBy { it.id }
+    }
+
     val libraryMedia = remember(mediaItems, entryById) {
         mediaItems.mapNotNull { media ->
-            entryById[media.travelEntryId]?.let { entry -> LibraryMedia(media, entry) }
+            entryById[media.travelEntryId]?.let { entry ->
+                LibraryMedia(
+                    media = media,
+                    entry = entry
+                )
+            }
         }
     }
 
@@ -136,7 +154,9 @@ fun LibraryScreen(
             .fillMaxSize()
             .background(WinxLightPink)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             LibraryHeader()
 
             Card(
@@ -144,7 +164,9 @@ fun LibraryScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = WinxWhite)
+                colors = CardDefaults.cardColors(
+                    containerColor = WinxWhite
+                )
             ) {
                 Column(
                     modifier = Modifier
@@ -159,7 +181,9 @@ fun LibraryScreen(
                         }
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -167,24 +191,28 @@ fun LibraryScreen(
                     ) {
                         OutlinedTextField(
                             value = searchText,
-                            onValueChange = { searchText = it },
+                            onValueChange = {
+                                searchText = it
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
                             placeholder = {
                                 Text(
-                                    text = when (selectedTab) {
-                                        0 -> "Search photos..."
-                                        1 -> "Search videos..."
-                                        else -> "Search entries..."
-                                    },
+                                    text = T(
+                                        when (selectedTab) {
+                                            0 -> "Search photos..."
+                                            1 -> "Search videos..."
+                                            else -> "Search entries..."
+                                        }
+                                    ),
                                     fontSize = 11.sp
                                 )
                             },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Outlined.Search,
-                                    contentDescription = "Search",
+                                    contentDescription = T("Search"),
                                     modifier = Modifier.size(18.dp)
                                 )
                             },
@@ -196,13 +224,17 @@ fun LibraryScreen(
                             )
                         )
 
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(
+                            modifier = Modifier.width(8.dp)
+                        )
 
                         Box {
                             Card(
                                 modifier = Modifier
                                     .height(42.dp)
-                                    .clickable { filterExpanded = true },
+                                    .clickable {
+                                        filterExpanded = true
+                                    },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = LibrarySearchGrey
@@ -212,31 +244,46 @@ fun LibraryScreen(
                                     modifier = Modifier
                                         .height(42.dp)
                                         .padding(horizontal = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.FilterList,
-                                        contentDescription = "Filter",
+                                        contentDescription = T("Filter"),
                                         modifier = Modifier.size(17.dp),
                                         tint = LibraryGrey
                                     )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Filter", fontSize = 11.sp, color = LibraryGrey)
+
+                                    Spacer(
+                                        modifier = Modifier.width(4.dp)
+                                    )
+
+                                    Text(
+                                        text = T("Filter"),
+                                        fontSize = 11.sp,
+                                        color = LibraryGrey
+                                    )
                                 }
                             }
 
                             DropdownMenu(
                                 expanded = filterExpanded,
-                                onDismissRequest = { filterExpanded = false }
+                                onDismissRequest = {
+                                    filterExpanded = false
+                                }
                             ) {
                                 LibrarySort.entries.forEach { sort ->
                                     DropdownMenuItem(
                                         text = {
+                                            val translatedLabel = T(sort.label)
+
                                             Text(
-                                                text = if (sort == selectedSort) {
-                                                    "✓ ${sort.label}"
+                                                text = if (
+                                                    sort == selectedSort
+                                                ) {
+                                                    "✓ $translatedLabel"
                                                 } else {
-                                                    sort.label
+                                                    translatedLabel
                                                 }
                                             )
                                         },
@@ -252,7 +299,9 @@ fun LibraryScreen(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
 
             Box(
                 modifier = Modifier
@@ -260,39 +309,65 @@ fun LibraryScreen(
                     .weight(1f)
             ) {
                 when {
-                    isLoading -> LibraryLoadingState()
-                    errorMessage != null -> LibraryErrorState(
-                        message = errorMessage!!,
-                        onRetry = { reloadKey++ }
-                    )
-                    selectedTab == 0 -> MediaLibraryContent(
-                        media = filterMedia(
-                            source = libraryMedia.filter {
-                                it.media.mediaType.equals("Photo", ignoreCase = true)
-                            },
-                            searchText = searchText,
-                            sort = selectedSort
-                        ),
-                        typeName = "photos",
-                        isVideo = false,
-                        onEntryClick = onEntryDetailsClick
-                    )
-                    selectedTab == 1 -> MediaLibraryContent(
-                        media = filterMedia(
-                            source = libraryMedia.filter {
-                                it.media.mediaType.equals("Video", ignoreCase = true)
-                            },
-                            searchText = searchText,
-                            sort = selectedSort
-                        ),
-                        typeName = "videos",
-                        isVideo = true,
-                        onEntryClick = onEntryDetailsClick
-                    )
-                    else -> EntryLibraryContent(
-                        entries = filterEntries(entries, searchText, selectedSort),
-                        onEntryClick = onEntryDetailsClick
-                    )
+                    isLoading -> {
+                        LibraryLoadingState()
+                    }
+
+                    errorMessage != null -> {
+                        LibraryErrorState(
+                            message = errorMessage!!,
+                            onRetry = {
+                                reloadKey++
+                            }
+                        )
+                    }
+
+                    selectedTab == 0 -> {
+                        MediaLibraryContent(
+                            media = filterMedia(
+                                source = libraryMedia.filter {
+                                    it.media.mediaType.equals(
+                                        "Photo",
+                                        ignoreCase = true
+                                    )
+                                },
+                                searchText = searchText,
+                                sort = selectedSort
+                            ),
+                            typeName = "photos",
+                            isVideo = false,
+                            onEntryClick = onEntryDetailsClick
+                        )
+                    }
+
+                    selectedTab == 1 -> {
+                        MediaLibraryContent(
+                            media = filterMedia(
+                                source = libraryMedia.filter {
+                                    it.media.mediaType.equals(
+                                        "Video",
+                                        ignoreCase = true
+                                    )
+                                },
+                                searchText = searchText,
+                                sort = selectedSort
+                            ),
+                            typeName = "videos",
+                            isVideo = true,
+                            onEntryClick = onEntryDetailsClick
+                        )
+                    }
+
+                    else -> {
+                        EntryLibraryContent(
+                            entries = filterEntries(
+                                entries = entries,
+                                searchText = searchText,
+                                sort = selectedSort
+                            ),
+                            onEntryClick = onEntryDetailsClick
+                        )
+                    }
                 }
             }
         }
@@ -313,17 +388,21 @@ private fun LibraryHeader() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 10.dp),
+            .padding(
+                top = 16.dp,
+                bottom = 10.dp
+            ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Library",
+            text = T("Library"),
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             color = WinxDarkBlue
         )
+
         Text(
-            text = "Your saved memories",
+            text = T("Your saved memories"),
             fontSize = 11.sp,
             color = LibraryGrey
         )
@@ -339,26 +418,51 @@ private fun LibraryTabs(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        listOf("Photos", "Videos", "Entries").forEachIndexed { index, title ->
+        listOf(
+            "Photos",
+            "Videos",
+            "Entries"
+        ).forEachIndexed { index, title ->
             val selected = selectedTab == index
+
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onTabSelected(index) }
+                    .clickable {
+                        onTabSelected(index)
+                    }
                     .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = title,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (selected) WinxDarkBlue else LibraryGrey
+                    text = T(title),
+                    fontWeight = if (selected) {
+                        FontWeight.Bold
+                    } else {
+                        FontWeight.Normal
+                    },
+                    color = if (selected) {
+                        WinxDarkBlue
+                    } else {
+                        LibraryGrey
+                    }
                 )
-                Spacer(Modifier.height(5.dp))
+
+                Spacer(
+                    modifier = Modifier.height(5.dp)
+                )
+
                 Box(
                     modifier = Modifier
                         .width(46.dp)
                         .height(3.dp)
-                        .background(if (selected) WinxBlue else Color.Transparent)
+                        .background(
+                            if (selected) {
+                                WinxBlue
+                            } else {
+                                Color.Transparent
+                            }
+                        )
                 )
             }
         }
@@ -367,17 +471,34 @@ private fun LibraryTabs(
 
 @Composable
 private fun LibraryLoadingState() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = WinxBlue)
-            Spacer(Modifier.height(12.dp))
-            Text("Loading your Library...", color = WinxDarkBlue)
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(
+                color = WinxBlue
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            Text(
+                text = T("Loading your Library..."),
+                color = WinxDarkBlue
+            )
         }
     }
 }
 
 @Composable
-private fun LibraryErrorState(message: String, onRetry: () -> Unit) {
+private fun LibraryErrorState(
+    message: String,
+    onRetry: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -386,28 +507,50 @@ private fun LibraryErrorState(message: String, onRetry: () -> Unit) {
     ) {
         Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = WinxWhite)
+            colors = CardDefaults.cardColors(
+                containerColor = WinxWhite
+            )
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "We couldn't load your Library",
+                    text = T("We couldn't load your Library"),
                     fontWeight = FontWeight.Bold,
                     color = WinxDarkBlue
                 )
-                Spacer(Modifier.height(8.dp))
-                Text(text = message, color = LibraryGrey, fontSize = 13.sp)
-                Spacer(Modifier.height(14.dp))
-                Button(onClick = onRetry) { Text("Retry") }
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text = T(message),
+                    color = LibraryGrey,
+                    fontSize = 13.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(14.dp)
+                )
+
+                Button(
+                    onClick = onRetry
+                ) {
+                    Text(
+                        text = T("Retry")
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun LibraryEmptyState(message: String) {
+private fun LibraryEmptyState(
+    message: String
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -416,10 +559,12 @@ private fun LibraryEmptyState(message: String) {
     ) {
         Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = WinxWhite)
+            colors = CardDefaults.cardColors(
+                containerColor = WinxWhite
+            )
         ) {
             Text(
-                text = message,
+                text = T(message),
                 modifier = Modifier.padding(24.dp),
                 color = LibraryGrey
             )
@@ -435,9 +580,15 @@ private fun MediaLibraryContent(
     onEntryClick: (TravelEntry) -> Unit
 ) {
     if (media.isEmpty()) {
-        LibraryEmptyState("No $typeName found.")
+        LibraryEmptyState(
+            message = "No $typeName found."
+        )
         return
     }
+
+    // Translate the fallback in composable scope, not inside formatDate.
+    val displayLocale = currentWinxLocale()
+    val missingDate = T("Date not specified")
 
     LazyColumn(
         modifier = Modifier
@@ -445,14 +596,25 @@ private fun MediaLibraryContent(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(media, key = { it.media.id }) { item ->
+        items(
+            items = media,
+            key = {
+                it.media.id
+            }
+        ) { item ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onEntryClick(item.entry) },
+                    .clickable {
+                        onEntryClick(item.entry)
+                    },
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = WinxOrange),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(
+                    containerColor = WinxOrange
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 2.dp
+                )
             ) {
                 Row(
                     modifier = Modifier
@@ -462,7 +624,10 @@ private fun MediaLibraryContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(width = 82.dp, height = 68.dp)
+                            .size(
+                                width = 82.dp,
+                                height = 68.dp
+                            )
                             .clip(RoundedCornerShape(9.dp))
                             .background(WinxWhite),
                         contentAlignment = Alignment.Center
@@ -477,32 +642,48 @@ private fun MediaLibraryContent(
                         } else {
                             Icon(
                                 imageVector = Icons.Filled.PlayArrow,
-                                contentDescription = "Video",
+                                contentDescription = T("Video"),
                                 tint = WinxBlue,
                                 modifier = Modifier.size(36.dp)
                             )
                         }
                     }
 
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(
+                        modifier = Modifier.width(12.dp)
+                    )
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
-                            text = item.entry.title.ifBlank { item.media.fileName },
+                            text = item.entry.title.ifBlank {
+                                item.media.fileName
+                            },
                             fontWeight = FontWeight.Bold,
                             color = WinxDarkBlue
                         )
-                        Spacer(Modifier.height(3.dp))
+
+                        Spacer(
+                            modifier = Modifier.height(3.dp)
+                        )
+
                         Text(
                             text = "${item.entry.location}, ${item.entry.country}",
                             color = LibraryGrey,
                             fontSize = 12.sp
                         )
+
                         Text(
-                            text = formatDate(item.entry.date),
+                            text = formatDate(
+                                value = item.entry.date,
+                                locale = displayLocale,
+                                missingDate = missingDate
+                            ),
                             color = LibraryGrey,
                             fontSize = 11.sp
                         )
+
                         if (isVideo) {
                             Text(
                                 text = item.media.fileName,
@@ -514,13 +695,18 @@ private fun MediaLibraryContent(
 
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = "Open entry",
+                        contentDescription = T("Open entry"),
                         tint = WinxDarkBlue
                     )
                 }
             }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+
+        item {
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
+        }
     }
 }
 
@@ -530,9 +716,15 @@ private fun EntryLibraryContent(
     onEntryClick: (TravelEntry) -> Unit
 ) {
     if (entries.isEmpty()) {
-        LibraryEmptyState("No entries found.")
+        LibraryEmptyState(
+            message = "No entries found."
+        )
         return
     }
+
+    val displayLocale = currentWinxLocale()
+    val missingDate = T("Date not specified")
+    val untitledEntry = T("Untitled Entry")
 
     LazyColumn(
         modifier = Modifier
@@ -540,14 +732,25 @@ private fun EntryLibraryContent(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(entries, key = { it.id }) { entry ->
+        items(
+            items = entries,
+            key = {
+                it.id
+            }
+        ) { entry ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onEntryClick(entry) },
+                    .clickable {
+                        onEntryClick(entry)
+                    },
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = WinxOrange),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                colors = CardDefaults.cardColors(
+                    containerColor = WinxOrange
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = 2.dp
+                )
             ) {
                 Row(
                     modifier = Modifier
@@ -555,42 +758,71 @@ private fun EntryLibraryContent(
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
-                            text = entry.title.ifBlank { "Untitled Entry" },
+                            text = entry.title.ifBlank {
+                                untitledEntry
+                            },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = WinxDarkBlue
                         )
-                        Spacer(Modifier.height(5.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Spacer(
+                            modifier = Modifier.height(5.dp)
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Place,
                                 contentDescription = null,
                                 tint = WinxDarkBlue,
                                 modifier = Modifier.size(15.dp)
                             )
-                            Spacer(Modifier.width(4.dp))
+
+                            Spacer(
+                                modifier = Modifier.width(4.dp)
+                            )
+
                             Text(
                                 text = "${entry.location}, ${entry.country}",
                                 fontSize = 12.sp,
                                 color = LibraryGrey
                             )
                         }
-                        Spacer(Modifier.height(3.dp))
+
+                        Spacer(
+                            modifier = Modifier.height(3.dp)
+                        )
+
                         Text(
-                            text = formatDate(entry.date),
+                            text = formatDate(
+                                value = entry.date,
+                                locale = displayLocale,
+                                missingDate = missingDate
+                            ),
                             fontSize = 11.sp,
                             color = LibraryGrey
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Star,
                                 contentDescription = null,
                                 tint = WinxDarkBlue,
                                 modifier = Modifier.size(14.dp)
                             )
-                            Spacer(Modifier.width(4.dp))
+
+                            Spacer(
+                                modifier = Modifier.width(4.dp)
+                            )
+
                             Text(
                                 text = "${entry.rating}/5",
                                 fontSize = 11.sp,
@@ -601,13 +833,18 @@ private fun EntryLibraryContent(
 
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = "Open entry",
+                        contentDescription = T("Open entry"),
                         tint = WinxDarkBlue
                     )
                 }
             }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+
+        item {
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
+        }
     }
 }
 
@@ -617,6 +854,7 @@ private fun filterEntries(
     sort: LibrarySort
 ): List<TravelEntry> {
     val query = searchText.trim()
+
     val filtered = entries.filter { entry ->
         query.isBlank() ||
                 entry.title.contains(query, ignoreCase = true) ||
@@ -625,7 +863,11 @@ private fun filterEntries(
                 entry.notes.contains(query, ignoreCase = true) ||
                 entry.date.contains(query, ignoreCase = true)
     }
-    return sortEntries(filtered, sort)
+
+    return sortEntries(
+        entries = filtered,
+        sort = sort
+    )
 }
 
 private fun filterMedia(
@@ -634,6 +876,7 @@ private fun filterMedia(
     sort: LibrarySort
 ): List<LibraryMedia> {
     val query = searchText.trim()
+
     val filtered = source.filter { item ->
         query.isBlank() ||
                 item.media.fileName.contains(query, ignoreCase = true) ||
@@ -645,21 +888,54 @@ private fun filterMedia(
     }
 
     return when (sort) {
-        LibrarySort.NEWEST -> filtered.sortedByDescending { parseDate(it.entry.date) }
-        LibrarySort.OLDEST -> filtered.sortedBy { parseDate(it.entry.date) }
-        LibrarySort.A_TO_Z -> filtered.sortedBy { it.entry.title.lowercase(Locale.getDefault()) }
+        LibrarySort.NEWEST -> {
+            filtered.sortedByDescending {
+                parseDate(it.entry.date)
+            }
+        }
+
+        LibrarySort.OLDEST -> {
+            filtered.sortedBy {
+                parseDate(it.entry.date)
+            }
+        }
+
+        LibrarySort.A_TO_Z -> {
+            filtered.sortedBy {
+                it.entry.title.lowercase(Locale.getDefault())
+            }
+        }
     }
 }
 
-private fun sortEntries(entries: List<TravelEntry>, sort: LibrarySort): List<TravelEntry> {
+private fun sortEntries(
+    entries: List<TravelEntry>,
+    sort: LibrarySort
+): List<TravelEntry> {
     return when (sort) {
-        LibrarySort.NEWEST -> entries.sortedByDescending { parseDate(it.date) }
-        LibrarySort.OLDEST -> entries.sortedBy { parseDate(it.date) }
-        LibrarySort.A_TO_Z -> entries.sortedBy { it.title.lowercase(Locale.getDefault()) }
+        LibrarySort.NEWEST -> {
+            entries.sortedByDescending {
+                parseDate(it.date)
+            }
+        }
+
+        LibrarySort.OLDEST -> {
+            entries.sortedBy {
+                parseDate(it.date)
+            }
+        }
+
+        LibrarySort.A_TO_Z -> {
+            entries.sortedBy {
+                it.title.lowercase(Locale.getDefault())
+            }
+        }
     }
 }
 
-private fun parseDate(value: String): LocalDate {
+private fun parseDate(
+    value: String
+): LocalDate {
     return try {
         LocalDate.parse(value.take(10))
     } catch (_: Exception) {
@@ -667,13 +943,25 @@ private fun parseDate(value: String): LocalDate {
     }
 }
 
-private fun formatDate(value: String): String {
+// Pure helper: all translated values are supplied by the composable caller.
+private fun formatDate(
+    value: String,
+    locale: Locale,
+    missingDate: String
+): String {
+    if (value.isBlank()) {
+        return missingDate
+    }
+
     return try {
         LocalDate.parse(value.take(10)).format(
-            DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
+            DateTimeFormatter.ofPattern(
+                "dd MMM yyyy",
+                locale
+            )
         )
     } catch (_: DateTimeParseException) {
-        value.ifBlank { "Date not specified" }
+        value
     }
 }
 

@@ -1,5 +1,6 @@
 package com.winx.app.screens
 
+import com.winx.app.utils.T
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +52,8 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import com.winx.app.utils.currentWinxLocale
+import java.time.DayOfWeek
 
 @Composable
 fun CalendarScreen(
@@ -64,6 +67,8 @@ fun CalendarScreen(
     onLibraryClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {}
 ) {
+    val displayLocale = currentWinxLocale()
+
     val today = LocalDate.now()
     var displayedMonth by remember { mutableStateOf(YearMonth.from(today)) }
     var selectedDate by remember { mutableStateOf(today) }
@@ -94,7 +99,7 @@ fun CalendarScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Calendar",
+                text = T("Calendar"),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = WinxDarkBlue
@@ -118,13 +123,13 @@ fun CalendarScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.ChevronLeft,
-                                contentDescription = "Previous month",
+                                contentDescription = T("Previous month"),
                                 tint = WinxDarkBlue
                             )
                         }
 
                         Text(
-                            text = "${displayedMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${displayedMonth.year}",
+                            text = "${displayedMonth.month.getDisplayName(TextStyle.FULL, displayLocale)} ${displayedMonth.year}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = WinxDarkBlue
@@ -135,7 +140,7 @@ fun CalendarScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.ChevronRight,
-                                contentDescription = "Next month",
+                                contentDescription = T("Next month"),
                                 tint = WinxDarkBlue
                             )
                         }
@@ -147,7 +152,7 @@ fun CalendarScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        listOf("M", "T", "W", "T", "F", "S", "S").forEach {
+                        DayOfWeek.values().map { it.getDisplayName(TextStyle.SHORT, displayLocale) }.forEach {
                             Text(
                                 text = it,
                                 fontWeight = FontWeight.Bold,
@@ -194,7 +199,7 @@ fun CalendarScreen(
 
             Text(
                 text = selectedDate.format(
-                    DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
+                    DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", displayLocale)
                 ),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -228,7 +233,7 @@ fun CalendarScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "We couldn't load your entries.",
+                                text = T("We couldn't load your entries."),
                                 fontWeight = FontWeight.Bold,
                                 color = WinxDarkBlue
                             )
@@ -239,7 +244,7 @@ fun CalendarScreen(
                                 onClick = onRetry,
                                 colors = ButtonDefaults.buttonColors(containerColor = WinxDarkBlue)
                             ) {
-                                Text("Retry", color = WinxWhite)
+                                Text(T("Retry"), color = WinxWhite)
                             }
                         }
                     }
@@ -252,7 +257,7 @@ fun CalendarScreen(
                         colors = CardDefaults.cardColors(containerColor = WinxLightPink)
                     ) {
                         Text(
-                            text = "No entries for this date.",
+                            text = T("No entries for this date."),
                             modifier = Modifier.padding(20.dp),
                             color = WinxDarkBlue
                         )
@@ -385,7 +390,7 @@ private fun CalendarEntryCard(
 
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = "Open entry",
+                contentDescription = T("Open entry"),
                 tint = WinxDarkBlue
             )
         }

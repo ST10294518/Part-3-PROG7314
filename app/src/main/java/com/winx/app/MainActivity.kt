@@ -31,6 +31,7 @@ import com.winx.app.auth.BiometricPolicy
 import com.winx.app.navigation.AppNavigation
 import com.winx.app.ui.theme.WinxTheme
 import com.winx.app.utils.T
+import com.winx.app.utils.localise
 import android.Manifest
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -308,10 +309,10 @@ class MainActivity : FragmentActivity() {
         promptRunning = true
         lockMessage = ""
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(title)
-            .setSubtitle("Verify using your registered biometric")
+            .setTitle(localise(this, title))
+            .setSubtitle(localise(this, "Verify using your registered biometric"))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText("Cancel")
+            .setNegativeButtonText(localise(this, "Cancel"))
             .build()
         try {
             biometricPrompt.authenticate(info)

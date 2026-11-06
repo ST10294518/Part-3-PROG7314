@@ -118,7 +118,7 @@ fun RegisterScreen(
                 painter = painterResource(
                     id = R.drawable.winx_logo
                 ),
-                contentDescription = "Winx logo",
+                contentDescription = T("Winx logo"),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
