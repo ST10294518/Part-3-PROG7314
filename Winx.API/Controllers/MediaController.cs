@@ -154,7 +154,7 @@ namespace Winx.API.Controllers
         {
             var uid = OwnerUid;
             var entryExists = await _context.TravelEntries.AnyAsync(
-                entry => entry.Id == travelEntryId && entry.OwnerUid == uid,
+                entry => entry.Id == travelEntryId && entry.OwnerUid == uid && !entry.IsDeleted,
                 cancellationToken);
 
             if (!entryExists)

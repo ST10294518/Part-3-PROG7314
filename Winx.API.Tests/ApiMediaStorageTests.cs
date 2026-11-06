@@ -97,6 +97,10 @@ public partial class ApiAuthenticationTests
             using var hiddenContent = await owner.GetAsync(contentUrl);
             Assert.Equal(HttpStatusCode.NotFound, hiddenContent.StatusCode);
 
+            using var deletedEntryForm = CreateUploadForm(bytes);
+            using var uploadToDeletedEntry = await owner.PostAsync(uploadUrl, deletedEntryForm);
+            Assert.Equal(HttpStatusCode.NotFound, uploadToDeletedEntry.StatusCode);
+
             var retainedEntry = await db.TravelEntries
                 .AsNoTracking()
                 .SingleAsync(item => item.Id == entry.Id);
