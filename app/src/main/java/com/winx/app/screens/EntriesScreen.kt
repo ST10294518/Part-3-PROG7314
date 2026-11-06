@@ -27,9 +27,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import android.content.SharedPreferences
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +58,8 @@ import com.winx.app.ui.theme.WinxDarkBlue
 import com.winx.app.ui.theme.WinxLightPink
 import com.winx.app.ui.theme.WinxOrange
 import com.winx.app.ui.theme.WinxWhite
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 @Composable
 fun EntriesScreen(
@@ -80,17 +84,26 @@ fun EntriesScreen(
         mutableStateOf(accountUid?.let { FavouriteEntries.read(context, it) } ?: emptySet<Int>())
     }
     var onlyFavourites by rememberSaveable(accountUid) { mutableStateOf(false) }
-    DisposableEffect(context, accountUid) {
-        val prefs = accountUid?.let {
-            context.getSharedPreferences("winx_favourites_$it", android.content.Context.MODE_PRIVATE)
+    val scope = rememberCoroutineScope()
+    var favouritesReady by remember(accountUid) { mutableStateOf(false) }
+    var favouritesBusy by remember(accountUid) { mutableStateOf(false) }
+    var favouritesError by remember(accountUid) { mutableStateOf(false) }
+    var refreshAttempt by remember(accountUid) { mutableStateOf(0) }
+    LaunchedEffect(accountUid, refreshAttempt) {
+        if (accountUid == null) return@LaunchedEffect
+
+        favouritesBusy = true
+        favouritesError = false
+        try {
+            favourites = FavouriteEntries.refresh(context, accountUid)
+            favouritesReady = true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            favouritesError = true
+        } finally {
+            favouritesBusy = false
         }
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "entry_ids" && accountUid != null) {
-                favourites = FavouriteEntries.read(context, accountUid)
-            }
-        }
-        prefs?.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs?.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     val visibleIds = FavouriteRules.visibleIds(entries.map { it.id }, favourites).toSet()
     val displayedEntries = if (accountUid == null) emptyList() else if (onlyFavourites) {
@@ -141,6 +154,20 @@ fun EntriesScreen(
             }
         }
 
+
+        if (favouritesError) {
+            TextButton(
+                onClick = {
+                    favouritesReady = false
+                    favouritesBusy = true
+                    refreshAttempt++
+                },
+                enabled = !favouritesBusy,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            ) {
+                Text(favouriteLabel("Could not sync favourites. Tap to retry."))
+            }
+        }
 
         // ---------------------------------------------------------
         // ENTRIES
@@ -300,10 +327,28 @@ fun EntriesScreen(
                         TravelEntryCard(
                             entry = entry,
                             isFavourite = entry.id in favourites,
+                            canToggleFavourite = favouritesReady && !favouritesBusy,
                             onToggleFavourite = {
-                                val currentUid = auth.currentUser?.uid
-                                if (currentUid != null && currentUid == accountUid) {
-                                    favourites = FavouriteEntries.toggle(context, currentUid, entry.id)
+                                if (accountUid != null && accountUid == auth.currentUser?.uid &&
+                                    favouritesReady && !favouritesBusy
+                                ) {
+                                    val saved = entry.id !in favourites
+                                    favouritesBusy = true
+                                    scope.launch {
+                                        try {
+                                            favourites = FavouriteEntries.setFavourite(
+                                                context, accountUid, entry.id, saved
+                                            )
+                                            favouritesError = false
+                                        } catch (cancelled: CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                            favouritesReady = false
+                                            favouritesError = true
+                                        } finally {
+                                            favouritesBusy = false
+                                        }
+                                    }
                                 }
                             },
                             onClick = {
@@ -342,6 +387,7 @@ fun EntriesScreen(
 private fun TravelEntryCard(
     entry: TravelEntry,
     isFavourite: Boolean,
+    canToggleFavourite: Boolean,
     onToggleFavourite: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -379,7 +425,7 @@ private fun TravelEntryCard(
                         color = WinxDarkBlue
                     )
                 }
-                IconButton(onClick = onToggleFavourite, enabled = entry.id > 0) {
+                IconButton(onClick = onToggleFavourite, enabled = canToggleFavourite && entry.id > 0) {
                     Icon(
                         imageVector = if (isFavourite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = favouriteLabel(
@@ -466,6 +512,7 @@ private fun favouriteLabel(text: String): String {
             "Add an entry to unlock random memories." to "Engeza okufakiwe ukuze uvule izinkumbulo ezingahleliwe.",
             "All entries" to "Konke okufakiwe",
             "Favourites" to "Izintandokazi",
+            "Could not sync favourites. Tap to retry." to "Ayikwazanga ukuvumelanisa izintandokazi. Thepha ukuze uzame futhi.",
             "No favourites yet" to "Azikho izintandokazi okwamanje",
             "Tap a heart on an entry to save it here." to "Thepha inhliziyo kokufakiwe ukuze ukugcine lapha.",
             "Add to favourites" to "Engeza ezintandokazini",
@@ -478,6 +525,7 @@ private fun favouriteLabel(text: String): String {
             "Add an entry to unlock random memories." to "Voeg 'n inskrywing by om ewekansige herinneringe te ontsluit.",
             "All entries" to "Alle inskrywings",
             "Favourites" to "Gunstelinge",
+            "Could not sync favourites. Tap to retry." to "Kon nie gunstelinge sinkroniseer nie. Tik om weer te probeer.",
             "No favourites yet" to "Nog geen gunstelinge nie",
             "Tap a heart on an entry to save it here." to "Tik die hartjie op 'n inskrywing om dit hier te stoor.",
             "Add to favourites" to "Voeg by gunstelinge",

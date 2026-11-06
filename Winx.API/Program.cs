@@ -1,3 +1,4 @@
+using Azure.Data.Tables;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -61,6 +62,15 @@ if (!string.IsNullOrWhiteSpace(mediaContainerUri))
         new Uri(mediaContainerUri, UriKind.Absolute),
         new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned)));
     builder.Services.AddHostedService<BlobDeletionWorker>();
+}
+
+var favouritesEndpoint = builder.Configuration["FavouritesStorage:ServiceUri"];
+if (!string.IsNullOrWhiteSpace(favouritesEndpoint))
+{
+    builder.Services.AddSingleton(_ => new TableClient(
+        new Uri(favouritesEndpoint, UriKind.Absolute),
+        builder.Configuration["FavouritesStorage:TableName"] ?? "WinxJournalFavourites",
+        new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned)));
 }
 
 // Register SQLite database

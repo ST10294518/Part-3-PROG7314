@@ -11,6 +11,21 @@ import retrofit2.http.Path
 
 interface WinxApiService {
 
+    @GET("api/Favourites")
+    suspend fun getFavourites(@Header("Authorization") authorization: String): List<Int>
+
+    @PUT("api/Favourites/{id}")
+    suspend fun saveFavourite(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+    @DELETE("api/Favourites/{id}")
+    suspend fun removeFavourite(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
     // GET all restaurant/travel entries
     @GET("api/Entries")
     suspend fun getEntries(@Header("Authorization") authorization: String): List<TravelEntryDto>
