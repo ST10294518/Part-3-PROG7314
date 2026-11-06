@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -137,7 +138,7 @@ namespace Winx.API.Controllers
             media.FilePath = media.FilePath.Trim();
 
             _context.MediaItems.Add(media);
-            NotificationEvents.Add(_context, OwnerUid, "media.added", media.TravelEntryId);
+            NotificationEvents.Add(_context, uid, "media.added", media.TravelEntryId);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
@@ -151,17 +152,19 @@ namespace Winx.API.Controllers
         public async Task<ActionResult<MediaItem>> UploadMedia(
             int travelEntryId,
             [FromForm] IFormFile file,
+            [FromHeader(Name = "Idempotency-Key")] Guid? operationId,
             [FromServices] ILogger<MediaController> logger,
             CancellationToken cancellationToken)
         {
             var uid = OwnerUid;
-            var entryExists = await _context.TravelEntries.AnyAsync(
-                entry => entry.Id == travelEntryId && entry.OwnerUid == uid && !entry.IsDeleted,
-                cancellationToken);
-
-            if (!entryExists)
+            if (!await OwnsActiveEntryAsync(travelEntryId, uid, cancellationToken))
             {
                 return NotFound(new { message = $"Travel entry with ID {travelEntryId} was not found." });
+            }
+
+            if (operationId == Guid.Empty)
+            {
+                return BadRequest(new { message = "The upload operation ID must be a non-empty UUID." });
             }
 
             if (file.Length is <= 0 or > 25 * 1024 * 1024)
@@ -189,6 +192,15 @@ namespace Winx.API.Controllers
                 return BadRequest(new { message = "Use a JPEG, PNG, WebP, or MP4 file." });
             }
 
+            // Each attempt owns a separate blob. A losing concurrent retry can delete
+            // its own blob without touching the blob already referenced by SQLite.
+            var prefix = operationId is { } operation ? $"upload-{operation:N}-" : null;
+            var completed = await FindCompletedUploadAsync(travelEntryId, prefix, cancellationToken);
+            if (completed is not null)
+            {
+                return Ok(completed);
+            }
+
             var container = HttpContext.RequestServices.GetService<BlobContainerClient>();
             if (container is null)
             {
@@ -196,7 +208,7 @@ namespace Winx.API.Controllers
                     new { message = "Media storage is unavailable." });
             }
 
-            var blobName = Guid.NewGuid().ToString("N");
+            var blobName = prefix + Guid.NewGuid().ToString("N");
             var blob = container.GetBlobClient(blobName);
             var media = new MediaItem
             {
@@ -206,35 +218,79 @@ namespace Winx.API.Controllers
                 BlobName = blobName
             };
 
-            await using var stream = file.OpenReadStream();
             try
             {
-                await blob.UploadAsync(stream, new BlobUploadOptions
+                await using (var stream = file.OpenReadStream())
                 {
-                    HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
-                }, cancellationToken);
+                    await blob.UploadAsync(stream, new BlobUploadOptions
+                    {
+                        HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
+                    }, cancellationToken);
+                }
 
-                _context.MediaItems.Add(media);
-                NotificationEvents.Add(_context, OwnerUid, "media.added", travelEntryId);
+                // SQLite serializes writers. Recheck after upload inside the transaction
+                // so overlapping retries cannot insert two media rows for one operation.
                 // Complete the database write even if the caller disconnects after upload.
-                await _context.SaveChangesAsync();
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                if (await OwnsActiveEntryAsync(travelEntryId, uid, CancellationToken.None))
+                {
+                    completed = await FindCompletedUploadAsync(travelEntryId, prefix, CancellationToken.None);
+                    if (completed is null)
+                    {
+                        _context.MediaItems.Add(media);
+                        NotificationEvents.Add(_context, uid, "media.added", travelEntryId);
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        return CreatedAtAction(nameof(GetMedia), new { id = media.Id }, media);
+                    }
+                }
+            }
+            catch (RequestFailedException error)
+            {
+                await TryDeleteUploadAsync(blob, blobName, logger);
+                logger.LogWarning(error, "Media upload failed for entry {EntryId}.", travelEntryId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    new { message = "Media upload failed. Please try again." });
             }
             catch
             {
-                try
-                {
-                    using var cleanupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                    await blob.DeleteIfExistsAsync(cancellationToken: cleanupTimeout.Token);
-                }
-                catch (Exception cleanupError)
-                {
-                    logger.LogWarning(cleanupError, "Could not clean up media blob {BlobName}.", blobName);
-                }
-
+                await TryDeleteUploadAsync(blob, blobName, logger);
                 throw;
             }
 
-            return CreatedAtAction(nameof(GetMedia), new { id = media.Id }, media);
+            await TryDeleteUploadAsync(blob, blobName, logger);
+            if (completed is not null)
+            {
+                return Ok(completed);
+            }
+
+            return NotFound(new { message = $"Travel entry with ID {travelEntryId} was not found." });
+        }
+
+        private Task<bool> OwnsActiveEntryAsync(int id, string uid, CancellationToken cancellationToken) =>
+            _context.TravelEntries.AnyAsync(entry => entry.Id == id && entry.OwnerUid == uid &&
+                !entry.IsDeleted, cancellationToken);
+
+        private Task<MediaItem?> FindCompletedUploadAsync(
+            int entryId, string? prefix, CancellationToken cancellationToken) =>
+            prefix is null
+                ? Task.FromResult<MediaItem?>(null)
+                : OwnedMedia.AsNoTracking().FirstOrDefaultAsync(
+                    item => item.TravelEntryId == entryId && item.BlobName != null &&
+                        item.BlobName.StartsWith(prefix), cancellationToken);
+
+        private static async Task TryDeleteUploadAsync(
+            BlobClient blob, string blobName, ILogger<MediaController> logger)
+        {
+            try
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await blob.DeleteIfExistsAsync(cancellationToken: timeout.Token);
+            }
+            catch (Exception error)
+            {
+                logger.LogWarning(error, "Could not clean up media blob {BlobName}.", blobName);
+            }
         }
 
         [HttpGet("{id:int}/content")]
