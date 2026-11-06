@@ -1,6 +1,10 @@
 package com.winx.app.data.remote
 
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
+import com.winx.app.offline.OfflineRuntime
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import com.winx.app.screens.TravelEntry
 
@@ -8,6 +12,7 @@ class TravelEntryRepository {
 
     private val api = RetrofitClient.api
     private val session = FirebaseRequestSession()
+    private val ownerUid = FirebaseAuth.getInstance().currentUser?.uid
 
     companion object {
         private const val TAG = "TravelEntryRepository"
@@ -16,33 +21,22 @@ class TravelEntryRepository {
     /**
      * Retrieves all entries from the Winx REST API.
      */
-    suspend fun getEntries(): Result<List<TravelEntry>> {
-
-        return try {
-
-            Log.d(TAG, "GET /api/Entries")
-
+    suspend fun getEntries(): Result<List<TravelEntry>> = withContext(Dispatchers.IO) {
+        val uid = ownerUid ?: return@withContext Result.failure(Exception("Sign in to use the journal."))
+        try {
             val response = session.request { authorization -> api.getEntries(authorization) }
-
-            Log.d(
-                TAG,
-                "GET /api/Entries successful. Entries received: ${response.size}"
-            )
-
-            Result.success(
-                response.map { it.toTravelEntry() }
-            )
-
+            if (FirebaseAuth.getInstance().currentUser?.uid != uid) {
+                throw CancellationException("The signed-in account changed.")
+            }
+            OfflineRuntime.store.replaceCache(uid, response)
+            Result.success(response.map { it.toTravelEntry() })
         } catch (exception: Exception) {
             if (exception is CancellationException) throw exception
-
-            Log.e(
-                TAG,
-                "Failed to retrieve entries",
-                exception
-            )
-
-            Result.failure(exception)
+            if (FirebaseAuth.getInstance().currentUser?.uid != uid) throw CancellationException("Account changed.")
+            OfflineRuntime.store.setProblem(uid, "Cloud refresh unavailable. Showing the last saved entries.")
+            if (OfflineRuntime.store.hasSnapshot(uid)) {
+                Result.success(OfflineRuntime.store.snapshot(uid).cached.map { it.toTravelEntry() })
+            } else Result.failure(exception)
         }
     }
 
@@ -169,6 +163,9 @@ class TravelEntryRepository {
             }
 
             if (response.isSuccessful) {
+                ownerUid?.let { uid ->
+                    withContext(Dispatchers.IO) { OfflineRuntime.store.cacheOne(uid, entry.toDto()) }
+                }
 
                 Log.d(
                     TAG,
@@ -219,6 +216,9 @@ class TravelEntryRepository {
             val response = session.request { authorization -> api.deleteEntry(authorization, id) }
 
             if (response.isSuccessful) {
+                ownerUid?.let { uid ->
+                    withContext(Dispatchers.IO) { OfflineRuntime.store.removeCached(uid, id) }
+                }
 
                 Log.d(
                     TAG,

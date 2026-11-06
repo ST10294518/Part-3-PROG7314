@@ -43,6 +43,9 @@ android {
 }
 
 dependencies {
+    // Persistent offline synchronisation
+    implementation("androidx.work:work-runtime-ktx:2.10.5")
+
     // AndroidX
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

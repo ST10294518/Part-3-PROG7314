@@ -6,13 +6,15 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.tasks.await
 
-internal class FirebaseRequestSession {
+internal class FirebaseRequestSession(
+    private val expectedUid: String? = FirebaseAuth.getInstance().currentUser?.uid
+) {
     private val auth = FirebaseAuth.getInstance()
     private val user = auth.currentUser
 
     private suspend fun checkAccount() {
         currentCoroutineContext().ensureActive()
-        if (user?.uid != auth.currentUser?.uid) {
+        if (user?.uid != expectedUid || expectedUid != auth.currentUser?.uid) {
             throw CancellationException("The signed-in account changed.")
         }
     }

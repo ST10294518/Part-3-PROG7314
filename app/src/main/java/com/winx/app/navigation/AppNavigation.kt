@@ -34,6 +34,7 @@ import com.winx.app.screens.CalendarScreen
 import com.winx.app.screens.CountriesScreen
 import com.winx.app.screens.DashboardScreen
 import com.winx.app.screens.EditEntryScreen
+import com.winx.app.offline.OfflineJournalScreen
 import com.winx.app.screens.EntriesScreen
 import com.winx.app.screens.EntryDetailsScreen
 import com.winx.app.screens.EntryScreen
@@ -482,6 +483,13 @@ private fun AppSessionNavigation(
         // MY ENTRIES
         // =========================================================
 
+        composable("offlineJournal") {
+            OfflineJournalScreen(onBack = {
+                loadEntries()
+                navController.popBackStack()
+            })
+        }
+
         composable("entries") {
 
             LaunchedEffect(Unit) {
@@ -489,7 +497,7 @@ private fun AppSessionNavigation(
             }
 
             EntriesScreen(
-
+                onOfflineClick = { navController.navigate("offlineJournal") },
                 entries = entries,
 
                 onBack = {
