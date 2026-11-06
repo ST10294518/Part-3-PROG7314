@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +48,7 @@ import com.winx.app.screens.TravelEntry
 import com.winx.app.screens.WelcomeScreen
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 
 @Composable
 fun AppNavigation() {
@@ -115,14 +118,6 @@ private fun AppSessionNavigation(
 
     val repository = remember {
         TravelEntryRepository()
-    }
-
-    // =============================================================
-    // SELECTED COUNTRY
-    // =============================================================
-
-    var selectedCountry by remember {
-        mutableStateOf("")
     }
 
     // =============================================================
@@ -554,68 +549,42 @@ private fun AppSessionNavigation(
         // =========================================================
 
         composable("editEntry") {
+            // Destination scope cancels a pending save when this form is removed.
+            val formScope = rememberCoroutineScope()
+            var isSaving by remember { mutableStateOf(false) }
+            var saveError by rememberSaveable { mutableStateOf<String?>(null) }
 
             selectedEntry?.let { entry ->
-
                 EditEntryScreen(
-
                     entry = entry,
-
+                    isSaving = isSaving,
+                    saveError = saveError,
                     onBackClick = {
-                        navController.popBackStack()
+                        if (!isSaving) navController.popBackStack()
                     },
-
                     onSaveClick = { updatedEntry ->
-
-                        coroutineScope.launch {
-
-                            Log.d(
-                                "AppNavigation",
-                                "Updating entry ID=${updatedEntry.id}"
-                            )
-
-                            repository
-                                .updateEntry(updatedEntry)
-                                .onSuccess {
-
-                                    Log.d(
-                                        "AppNavigation",
-                                        "Entry updated successfully. ID=${updatedEntry.id}"
-                                    )
-
-                                    // Update local state.
-                                    entries =
-                                        entries.map { existingEntry ->
-
-                                            if (
-                                                existingEntry.id ==
-                                                updatedEntry.id
-                                            ) {
-                                                updatedEntry
-                                            } else {
-                                                existingEntry
-                                            }
+                        if (!isSaving) {
+                            isSaving = true
+                            saveError = null
+                            formScope.launch {
+                                try {
+                                    val result = repository.updateEntry(updatedEntry)
+                                    ensureActive()
+                                    result.onSuccess {
+                                        entries = entries.map {
+                                            if (it.id == updatedEntry.id) updatedEntry else it
                                         }
-
-                                    selectedEntry = updatedEntry
-
-                                    apiError = null
-
-                                    // Return to Entry Details.
-                                    navController.popBackStack()
+                                        selectedEntry = updatedEntry
+                                        apiError = null
+                                        navController.popBackStack()
+                                    }.onFailure { exception ->
+                                        Log.e("AppNavigation", "Failed to update entry", exception)
+                                        saveError = "Unable to update the entry. Check your connection and try again."
+                                    }
+                                } finally {
+                                    isSaving = false
                                 }
-                                .onFailure { exception ->
-
-                                    Log.e(
-                                        "AppNavigation",
-                                        "Failed to update entry ID=${updatedEntry.id}",
-                                        exception
-                                    )
-
-                                    apiError =
-                                        exception.message
-                                            ?: "Unable to update the entry."
-                                }
+                            }
                         }
                     }
                 )
@@ -626,70 +595,50 @@ private fun AppSessionNavigation(
         // CREATE ENTRY
         // =========================================================
 
-        composable("entry") {
+        composable("entry") { entryBackStack ->
+            val formScope = rememberCoroutineScope()
+            var isSaving by remember { mutableStateOf(false) }
+            var saveError by rememberSaveable { mutableStateOf<String?>(null) }
+            // Country belongs to this draft, rather than a global navigation variable.
+            val draftCountry by entryBackStack.savedStateHandle
+                .getStateFlow("draftCountry", "")
+                .collectAsState()
 
             EntryScreen(
-
-                selectedCountry = selectedCountry,
-
+                selectedCountry = draftCountry,
+                isSaving = isSaving,
+                saveError = saveError,
                 onCountriesClick = {
-                    navController.navigate("countries")
+                    if (!isSaving) navController.navigate("countries")
                 },
-
-                // -------------------------------------------------
-                // CREATE THROUGH REST API
-                // -------------------------------------------------
-
                 onSaveClick = { newEntry ->
-
-                    coroutineScope.launch {
-
-                        Log.d(
-                            "AppNavigation",
-                            "Creating new entry: ${newEntry.title}"
-                        )
-
-                        repository
-                            .createEntry(newEntry)
-                            .onSuccess { createdEntry ->
-
-                                Log.d(
-                                    "AppNavigation",
-                                    "Entry created successfully. ID=${createdEntry.id}"
-                                )
-
-                                entries =
-                                    entries + createdEntry
-
-                                selectedEntry =
-                                    createdEntry
-
-                                apiError = null
-
-                                navController.navigate("entries") {
-
-                                    popUpTo("entry") {
-                                        inclusive = true
+                    if (!isSaving) {
+                        isSaving = true
+                        saveError = null
+                        formScope.launch {
+                            try {
+                                val result = repository.createEntry(newEntry)
+                                ensureActive()
+                                result.onSuccess { createdEntry ->
+                                    entries = entries + createdEntry
+                                    selectedEntry = createdEntry
+                                    apiError = null
+                                    navController.navigate("entries") {
+                                        popUpTo("entry") { inclusive = true }
+                                        launchSingleTop = true
                                     }
+                                }.onFailure { exception ->
+                                    Log.e("AppNavigation", "Failed to create entry", exception)
+                                    saveError = "Unable to save the entry. Check your connection and try again."
                                 }
+                            } finally {
+                                isSaving = false
                             }
-                            .onFailure { exception ->
-
-                                Log.e(
-                                    "AppNavigation",
-                                    "Failed to create entry.",
-                                    exception
-                                )
-
-                                apiError =
-                                    exception.message
-                                        ?: "Unable to save the entry."
-                            }
+                        }
                     }
                 },
-
                 onCancelClick = {
-                    navController.popBackStack()
+                    if (!isSaving) navController.popBackStack()
                 }
             )
         }
@@ -704,7 +653,9 @@ private fun AppSessionNavigation(
 
                 onSaveClick = { country ->
 
-                    selectedCountry = country
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("draftCountry", country)
 
                     navController.popBackStack()
                 },

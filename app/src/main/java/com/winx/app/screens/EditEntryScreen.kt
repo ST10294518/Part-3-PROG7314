@@ -1,5 +1,8 @@
 package com.winx.app.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +32,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.winx.app.utils.T
+import java.time.LocalDate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,39 +51,41 @@ import com.winx.app.ui.theme.WinxBlue
 fun EditEntryScreen(
     entry: TravelEntry,
     onBackClick: () -> Unit = {},
-    onSaveClick: (TravelEntry) -> Unit = {}
+    onSaveClick: (TravelEntry) -> Unit = {},
+    isSaving: Boolean = false,
+    saveError: String? = null
 ) {
 
     // =============================================================
     // FORM STATE
     // =============================================================
 
-    var title by remember {
+    var title by rememberSaveable(entry.id) {
         mutableStateOf(entry.title)
     }
 
-    var location by remember {
+    var location by rememberSaveable(entry.id) {
         mutableStateOf(entry.location)
     }
 
-    var country by remember {
+    var country by rememberSaveable(entry.id) {
         mutableStateOf(entry.country)
     }
 
-    var date by remember {
+    var date by rememberSaveable(entry.id) {
         mutableStateOf(entry.date.take(10))
     }
 
-    var notes by remember {
+    var notes by rememberSaveable(entry.id) {
         mutableStateOf(entry.notes)
     }
 
-    var rating by remember {
+    var rating by rememberSaveable(entry.id) {
         mutableIntStateOf(entry.rating)
     }
 
     // Validation error message
-    var validationError by remember {
+    var validationError by rememberSaveable(entry.id) {
         mutableStateOf<String?>(null)
     }
 
@@ -113,7 +121,8 @@ fun EditEntryScreen(
         ) {
 
             IconButton(
-                onClick = onBackClick
+                onClick = onBackClick,
+                enabled = !isSaving
             ) {
 
                 Icon(
@@ -138,6 +147,8 @@ fun EditEntryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
 
@@ -354,6 +365,14 @@ fun EditEntryScreen(
             // VALIDATION MESSAGE
             // =========================================================
 
+            if (saveError != null) {
+                Text(
+                    text = T(saveError),
+                    color = Color.Red,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             if (validationError != null) {
 
                 Spacer(
@@ -393,6 +412,7 @@ fun EditEntryScreen(
 
                 TextButton(
                     onClick = onBackClick,
+                    enabled = !isSaving,
                     modifier = Modifier.weight(1f)
                 ) {
 
@@ -407,6 +427,7 @@ fun EditEntryScreen(
                 // -----------------------------------------------------
 
                 Button(
+                    enabled = !isSaving,
                     onClick = {
 
                         // =================================================
@@ -424,7 +445,8 @@ fun EditEntryScreen(
                             country.isBlank() ->
                                 "Please enter a country."
 
-                            !date.matches(Regex("""\d{4}-\d{2}-\d{2}""")) ->
+                            !date.matches(Regex("""\d{4}-\d{2}-\d{2}""")) ||
+                                    runCatching { LocalDate.parse(date) }.isFailure ->
                                 "Please enter the date in yyyy-MM-dd format."
 
                             rating !in 1..5 ->
@@ -465,7 +487,7 @@ fun EditEntryScreen(
                 ) {
 
                     Text(
-                        text = "Update Entry",
+                        text = if (isSaving) "Saving..." else "Update Entry",
                         color = WinxDarkBlue,
                         fontWeight = FontWeight.Bold
                     )
