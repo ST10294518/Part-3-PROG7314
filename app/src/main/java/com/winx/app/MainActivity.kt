@@ -98,7 +98,7 @@ class MainActivity : FragmentActivity() {
         }
 
     private fun initialisePushNotifications() {
-        WinxNotifications.createChannel(this)
+        WinxNotifications.clearAlerts(this)
 
         FirebaseMessaging.getInstance().token
             .addOnCompleteListener { task ->

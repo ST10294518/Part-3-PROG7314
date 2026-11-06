@@ -87,4 +87,9 @@ object WinxNotifications {
             )
         }
     }
+    fun clearAlerts(context: android.content.Context) {
+        androidx.core.app.NotificationManagerCompat
+            .from(context)
+            .cancelAll()
+    }
 }
