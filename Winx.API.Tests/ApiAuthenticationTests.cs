@@ -158,7 +158,7 @@ public partial class ApiAuthenticationTests
     }
 
     // TravelEntry identifies the assembly containing the Winx.API entry point.
-    private sealed class WinxApiFactory(string databaseConnectionString = "Data Source=:memory:", BlobContainerClient? blobContainer = null) : WebApplicationFactory<TravelEntry>
+    private sealed class WinxApiFactory(string databaseConnectionString = "Data Source=:memory:", BlobContainerClient? blobContainer = null, Winx.API.Notifications.IPushSender? pushSender = null) : WebApplicationFactory<TravelEntry>
     {
         private const string ProjectId = "winx-integration-tests";
         private const string Issuer = "https://securetoken.google.com/" + ProjectId;
@@ -171,6 +171,7 @@ public partial class ApiAuthenticationTests
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Firebase:ProjectId"] = ProjectId,
+                    ["Push:Enabled"] = "false",
                     ["ConnectionStrings:DefaultConnection"] = databaseConnectionString
                 });
             });
@@ -182,6 +183,7 @@ public partial class ApiAuthenticationTests
         {
             builder.ConfigureTestServices(services =>
             {
+                if (pushSender != null) services.AddSingleton<Winx.API.Notifications.IPushSender>(pushSender);
                 if (blobContainer is not null)
                 {
                     services.AddSingleton(blobContainer);

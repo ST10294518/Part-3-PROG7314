@@ -52,6 +52,11 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
+builder.Services.AddSingleton<Winx.API.Notifications.IPushSender, Winx.API.Notifications.FirebasePushSender>();
+builder.Services.AddScoped<Winx.API.Notifications.PushDispatcher>();
+if (builder.Configuration.GetValue<bool>("Push:Enabled"))
+    builder.Services.AddHostedService<Winx.API.Notifications.PushDeliveryWorker>();
+
 // Register API controllers
 builder.Services.AddControllers();
 

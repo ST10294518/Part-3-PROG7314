@@ -17,6 +17,41 @@ namespace Winx.API.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("Winx.API.Models.PushDevice", b =>
+                {
+                    b.Property<string>("InstallationId").HasColumnType("TEXT");
+                    b.Property<string>("BindingHash").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("OwnerUid").HasColumnType("TEXT");
+                    b.Property<string>("Token").IsRequired().HasColumnType("TEXT");
+                    b.Property<bool>("Enabled").HasColumnType("INTEGER");
+                    b.Property<long>("UpdatedAt").HasColumnType("INTEGER");
+                    b.HasKey("InstallationId");
+                    b.HasIndex("OwnerUid");
+                    b.HasIndex("Token").IsUnique();
+                    b.ToTable("PushDevices");
+                });
+
+            modelBuilder.Entity("Winx.API.Models.PushNotification", b =>
+                {
+                    b.Property<string>("Id").HasColumnType("TEXT");
+                    b.Property<string>("OwnerUid").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("Title").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("Body").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("Kind").IsRequired().HasColumnType("TEXT");
+                    b.Property<int?>("EntryId").HasColumnType("INTEGER");
+                    b.Property<long>("ReceivedAt").HasColumnType("INTEGER");
+                    b.Property<bool>("Read").HasColumnType("INTEGER");
+                    b.Property<bool>("Hidden").HasColumnType("INTEGER");
+                    b.Property<bool>("Dispatched").HasColumnType("INTEGER");
+                    b.Property<int>("Attempts").HasColumnType("INTEGER");
+                    b.Property<long>("NextAttemptAt").HasColumnType("INTEGER");
+                    b.HasKey("Id");
+                    b.HasIndex("Dispatched", "NextAttemptAt");
+                    b.HasIndex("OwnerUid", "ReceivedAt");
+                    b.ToTable("PushNotifications");
+                });
+
+
             modelBuilder.Entity("Winx.API.Models.OfflineCreateReceipt", b =>
                 {
                     b.Property<string>("OwnerUid").HasColumnType("TEXT");

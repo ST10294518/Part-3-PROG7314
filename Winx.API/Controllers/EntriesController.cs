@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Winx.API.Data;
 using Winx.API.Models;
+using Winx.API.Notifications;
 
 namespace Winx.API.Controllers;
 
@@ -81,6 +82,7 @@ public class EntriesController : ControllerBase
         entry.MediaItems = new List<MediaItem>();
 
         _context.TravelEntries.Add(entry);
+        NotificationEvents.Add(_context, OwnerUid, "entry.created");
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(
@@ -124,6 +126,8 @@ public class EntriesController : ControllerBase
             {
                 OwnerUid = uid, OperationId = key, EntryId = entry.Id
             });
+            await _context.SaveChangesAsync();
+            NotificationEvents.Add(_context, uid, "entry.synced", entry.Id);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
         }
@@ -175,12 +179,16 @@ public class EntriesController : ControllerBase
             });
         }
 
+        var changed = existingEntry.Title != updatedEntry.Title || existingEntry.Location != updatedEntry.Location ||
+            existingEntry.Country != updatedEntry.Country || existingEntry.Date != updatedEntry.Date ||
+            existingEntry.Rating != updatedEntry.Rating || existingEntry.Notes != updatedEntry.Notes;
         existingEntry.Title = updatedEntry.Title;
         existingEntry.Location = updatedEntry.Location;
         existingEntry.Country = updatedEntry.Country;
         existingEntry.Date = updatedEntry.Date;
         existingEntry.Rating = updatedEntry.Rating;
         existingEntry.Notes = updatedEntry.Notes;
+        if (changed) NotificationEvents.Add(_context, OwnerUid, "entry.updated", id);
 
         await _context.SaveChangesAsync();
 
@@ -206,6 +214,7 @@ public class EntriesController : ControllerBase
         }
 
         entry.IsDeleted = true;
+        NotificationEvents.Add(_context, OwnerUid, "entry.deleted", id);
 
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -239,6 +248,7 @@ public class EntriesController : ControllerBase
         }
 
         entry.IsDeleted = false;
+        NotificationEvents.Add(_context, OwnerUid, "entry.restored", id);
 
         await _context.SaveChangesAsync();
 
@@ -264,6 +274,7 @@ public class EntriesController : ControllerBase
         await QueueBlobDeletions(new[] { entry.Id });
 
         _context.TravelEntries.Remove(entry);
+        NotificationEvents.Add(_context, OwnerUid, "entry.permanent", id);
 
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -290,6 +301,7 @@ public class EntriesController : ControllerBase
             await QueueBlobDeletions(entryIds);
 
             _context.TravelEntries.RemoveRange(entries);
+            NotificationEvents.Add(_context, OwnerUid, "entries.emptied");
 
             await _context.SaveChangesAsync();
         }

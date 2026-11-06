@@ -98,7 +98,7 @@ class MainActivity : FragmentActivity() {
         }
 
     private fun initialisePushNotifications() {
-        WinxNotifications.clearAlerts(this)
+        WinxNotifications.createChannel(this)
 
         FirebaseMessaging.getInstance().token
             .addOnCompleteListener { task ->
@@ -142,6 +142,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         initialisePushNotifications()
+        handleNotificationIntent(intent)
         sessionGeneration = savedInstanceState?.getInt("sessionGeneration", 0) ?: 0
         observedUid = auth.currentUser?.uid
         signedInUid = observedUid
@@ -330,12 +331,34 @@ class MainActivity : FragmentActivity() {
         pendingResult = null
     }
 
+
+    private fun handleNotificationIntent(incoming: android.content.Intent?) {
+        val owner = incoming?.getStringExtra("winx_notification_uid") ?: return
+        val id = incoming.getStringExtra("winx_notification_id") ?: return
+        if (auth.currentUser?.uid == owner) {
+            com.winx.app.notifications.NotificationNavigation.pending.value =
+                com.winx.app.notifications.NotificationNavigation.Request(owner, id)
+        }
+        incoming.removeExtra("winx_notification_uid")
+        incoming.removeExtra("winx_notification_id")
+    }
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+    override fun onStart() {
+        super.onStart()
+        com.winx.app.notifications.NotificationRuntime.foreground(this)
+        com.winx.app.notifications.NotificationRuntime.schedule(this)
+    }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt("sessionGeneration", sessionGeneration)
         super.onSaveInstanceState(outState)
     }
 
     override fun onStop() {
+        com.winx.app.notifications.NotificationRuntime.background()
         if (biometricEnabled && signedInUid != null) {
             sessionUnlocked = false
             biometricPrompt.cancelAuthentication()

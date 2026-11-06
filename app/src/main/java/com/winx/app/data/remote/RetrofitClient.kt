@@ -15,6 +15,10 @@ object RetrofitClient {
             .build()
     }
 
+    val notificationApi: com.winx.app.notifications.NotificationApi by lazy {
+        retrofit.create(com.winx.app.notifications.NotificationApi::class.java)
+    }
+
     val api: WinxApiService by lazy {
         retrofit.create(WinxApiService::class.java)
     }

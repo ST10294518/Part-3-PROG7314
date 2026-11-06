@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Winx.API.Data;
 using Winx.API.Models;
+using Winx.API.Notifications;
 
 namespace Winx.API.Controllers
 {
@@ -137,6 +138,7 @@ namespace Winx.API.Controllers
             media.FilePath = media.FilePath.Trim();
 
             _context.MediaItems.Add(media);
+            NotificationEvents.Add(_context, uid, "media.added", media.TravelEntryId);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
@@ -236,6 +238,7 @@ namespace Winx.API.Controllers
                     if (completed is null)
                     {
                         _context.MediaItems.Add(media);
+                        NotificationEvents.Add(_context, uid, "media.added", travelEntryId);
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
                         return CreatedAtAction(nameof(GetMedia), new { id = media.Id }, media);
@@ -355,6 +358,7 @@ namespace Winx.API.Controllers
             }
 
             _context.MediaItems.Remove(media);
+            NotificationEvents.Add(_context, OwnerUid, "media.deleted", media.TravelEntryId);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 

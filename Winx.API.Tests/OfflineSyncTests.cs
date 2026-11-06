@@ -133,6 +133,8 @@ public class OfflineMigrationTests
         await db.Database.MigrateAsync();
         Assert.Equal("Keep me", (await db.TravelEntries.AsNoTracking().SingleAsync()).Title);
         Assert.Equal(0, await db.OfflineCreateReceipts.CountAsync());
+        Assert.Equal(0, await db.PushNotifications.CountAsync());
+        Assert.Equal(0, await db.PushDevices.CountAsync());
         Assert.False(db.Database.HasPendingModelChanges());
     }
 }
