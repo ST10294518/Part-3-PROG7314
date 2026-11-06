@@ -5,7 +5,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
 
-    private const val BASE_URL = "https://winx-api-part3-d9b31478.azurewebsites.net/"
+    private const val BASE_URL =
+        "https://winx-api-part3-d9b31478.azurewebsites.net/"
 
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
