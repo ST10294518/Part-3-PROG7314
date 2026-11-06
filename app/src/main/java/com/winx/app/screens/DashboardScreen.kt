@@ -62,6 +62,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import com.winx.app.utils.currentWinxLocale
 
 
 @Composable
@@ -160,7 +161,7 @@ fun DashboardScreen(
                             imageVector =
                                 Icons.Outlined.NotificationsNone,
                             contentDescription =
-                                "Notifications",
+                                T("Notifications"),
                             tint = WinxDarkBlue,
                             modifier = Modifier.size(23.dp)
                         )
@@ -183,7 +184,7 @@ fun DashboardScreen(
                             imageVector =
                                 Icons.Outlined.Person,
                             contentDescription =
-                                "Profile",
+                                T("Profile"),
                             tint = WinxDarkBlue,
                             modifier = Modifier.size(23.dp)
                         )
@@ -229,8 +230,7 @@ fun DashboardScreen(
 
                     Text(
                         text = T(
-                            "Every Place has a story,\n" +
-                                    "what will you capture today?"
+                            "Every Place has a story,\nwhat will you capture today??"
                         ),
                         fontSize = 15.sp,
                         color = WinxDarkBlue,
@@ -670,7 +670,7 @@ private fun LiveEntryCard(
                 Icon(
                     imageVector =
                         Icons.Outlined.Description,
-                    contentDescription = "Entry",
+                    contentDescription = T("Entry"),
                     tint = WinxWhite,
                     modifier =
                         Modifier.size(30.dp)
@@ -729,7 +729,8 @@ private fun LiveEntryCard(
 
                 Text(
                     text = formatEntryDate(
-                        entry.date
+                        entry.date,
+                        currentWinxLocale()
                     ),
                     fontSize = 11.sp,
                     color = WinxBlue
@@ -755,7 +756,7 @@ private fun LiveEntryCard(
                 imageVector =
                     Icons.Outlined.ChevronRight,
                 contentDescription =
-                    "Open entry",
+                    T("Open entry"),
                 tint = WinxDarkBlue,
                 modifier = Modifier.size(24.dp)
             )
@@ -892,7 +893,7 @@ private fun DashboardErrorCard(
             )
 
             Text(
-                text = message,
+                text = T(message),
                 fontSize = 12.sp,
                 color = WinxGreyDashboard
             )
@@ -983,7 +984,8 @@ private fun parseEntryDate(
 
 
 private fun formatEntryDate(
-    value: String
+    value: String,
+    locale: Locale
 ): String {
 
     val date =
@@ -993,7 +995,7 @@ private fun formatEntryDate(
     return date.format(
         DateTimeFormatter.ofPattern(
             "d MMMM yyyy",
-            Locale.ENGLISH
+            locale
         )
     )
 }
@@ -1118,7 +1120,7 @@ private fun NavigationItem(
             )
 
             Text(
-                text = label,
+                text = T(label),
                 fontSize = 10.sp,
                 color =
                     if (selected) {

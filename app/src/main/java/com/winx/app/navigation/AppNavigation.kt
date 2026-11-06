@@ -1,7 +1,7 @@
 package com.winx.app.navigation
 
 import com.winx.app.data.remote.MediaRepository
-
+import com.winx.app.utils.T
 import android.util.Log
 
 import androidx.compose.material3.AlertDialog
@@ -112,7 +112,7 @@ private fun AppSessionNavigation(
     }
 
     // Forces the current Compose destination to refresh after a language change.
-    var languageRefreshKey by remember { mutableIntStateOf(0) }
+    // Each translated composable observes the saved language directly.
 
     // =============================================================
     // REST API REPOSITORY
@@ -207,7 +207,7 @@ private fun AppSessionNavigation(
     // NAVIGATION
     // =============================================================
 
-    val currentLanguageRefresh = languageRefreshKey
+
 
     NavHost(
         navController = navController,
@@ -421,7 +421,7 @@ private fun AppSessionNavigation(
                     navController.popBackStack()
                 },
                 onLanguageChanged = {
-                    languageRefreshKey++
+                    // No navigation recreation: keep current drafts and screen state.
                 }
             )
         }
@@ -814,14 +814,14 @@ private fun AppSessionNavigation(
 
             title = {
                 Text(
-                    text = "Delete Entry?"
+                    text = T("Delete Entry?")
                 )
             },
 
             text = {
                 Text(
                     text =
-                        "Are you sure you want to delete \"${entry.title}\"?"
+                        T("Are you sure you want to delete \"{0}\"?", entry.title)
                 )
             },
 
@@ -876,7 +876,7 @@ private fun AppSessionNavigation(
                 ) {
 
                     Text(
-                        text = "Delete"
+                        text = T("Delete")
                     )
                 }
             },
@@ -890,7 +890,7 @@ private fun AppSessionNavigation(
                 ) {
 
                     Text(
-                        text = "Cancel"
+                        text = T("Cancel")
                     )
                 }
             }
@@ -911,7 +911,7 @@ private fun AppSessionNavigation(
 
             title = {
                 Text(
-                    text = "API Error"
+                    text = T("API Error")
                 )
             },
 
@@ -930,7 +930,7 @@ private fun AppSessionNavigation(
                 ) {
 
                     Text(
-                        text = "OK"
+                        text = T("OK")
                     )
                 }
             }

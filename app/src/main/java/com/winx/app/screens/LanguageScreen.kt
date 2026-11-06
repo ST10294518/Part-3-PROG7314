@@ -25,6 +25,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,7 +57,7 @@ fun LanguageScreen(
         "Afrikaans"
     )
 
-    var selectedLanguage by remember {
+    var selectedLanguage by rememberSaveable {
 
         mutableStateOf(
             preferences.getString(
@@ -64,7 +67,7 @@ fun LanguageScreen(
         )
     }
 
-    var saved by remember {
+    var saved by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -86,7 +89,7 @@ fun LanguageScreen(
 
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = T("Back")
                         )
                     }
                 }
@@ -100,6 +103,7 @@ fun LanguageScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
 
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -107,7 +111,7 @@ fun LanguageScreen(
 
             Icon(
                 imageVector = Icons.Default.Language,
-                contentDescription = "Language"
+                contentDescription = T("Language")
             )
 
             Text(

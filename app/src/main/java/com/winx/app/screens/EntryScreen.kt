@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.winx.app.utils.currentWinxLocale
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -104,12 +105,14 @@ fun EntryScreen(
 
     val context = LocalContext.current
 
-    val displayDate = rememberSaveable {
-        SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH).format(Date())
+    val displayLocale = currentWinxLocale()
+    val draftTimestamp = rememberSaveable { System.currentTimeMillis() }
+    val displayDate = remember(draftTimestamp, displayLocale) {
+        SimpleDateFormat("dd MMMM yyyy", displayLocale).format(Date(draftTimestamp))
     }
 
     val entryDate = rememberSaveable {
-        SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
+        SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date(draftTimestamp))
     }
 
 
@@ -282,7 +285,7 @@ fun EntryScreen(
             ) {
 
                 Text(
-                    text = "Entry",
+                    text = T("Entry"),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = WinxDarkBlue
@@ -300,7 +303,7 @@ fun EntryScreen(
             // ---------------------------------------------------------
 
             Text(
-                text = "Add to your journey",
+                text = T("Add to your journey"),
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
                 color = WinxDarkBlue
@@ -326,7 +329,7 @@ fun EntryScreen(
                     icon = {
                         Icon(
                             imageVector = Icons.Outlined.Image,
-                            contentDescription = "Add pictures",
+                            contentDescription = T("Add pictures"),
                             modifier = Modifier.size(25.dp)
                         )
                     },
@@ -352,7 +355,7 @@ fun EntryScreen(
                     icon = {
                         Icon(
                             imageVector = Icons.Outlined.Videocam,
-                            contentDescription = "Add videos",
+                            contentDescription = T("Add videos"),
                             modifier = Modifier.size(25.dp)
                         )
                     },
@@ -378,7 +381,7 @@ fun EntryScreen(
                     icon = {
                         Icon(
                             imageVector = Icons.Outlined.LocationOn,
-                            contentDescription = "Add country",
+                            contentDescription = T("Add country"),
                             modifier = Modifier.size(25.dp)
                         )
                     },
@@ -448,7 +451,7 @@ fun EntryScreen(
 
                             Icon(
                                 imageVector = Icons.Outlined.Add,
-                                contentDescription = "Upload pictures",
+                                contentDescription = T("Upload pictures"),
                                 tint = WinxWhite,
                                 modifier = Modifier.size(30.dp)
                             )
@@ -461,7 +464,7 @@ fun EntryScreen(
 
 
                         Text(
-                            text = "Add photos or videos",
+                            text = T("Add photos or videos"),
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = WinxWhite
@@ -474,7 +477,7 @@ fun EntryScreen(
 
 
                         Text(
-                            text = "Tap here or choose Pictures above",
+                            text = T("Tap here or choose Pictures above"),
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.8f),
                             textAlign = TextAlign.Center
@@ -499,7 +502,7 @@ fun EntryScreen(
                         ) {
 
                             Text(
-                                text = "${selectedPictures.size} picture(s) selected",
+                                text = T("{0} picture(s) selected", selectedPictures.size),
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = WinxDarkBlue
@@ -518,7 +521,7 @@ fun EntryScreen(
                             ) {
 
                                 Text(
-                                    text = "Add More",
+                                    text = T("Add More"),
                                     color = WinxBlue
                                 )
                             }
@@ -552,7 +555,7 @@ fun EntryScreen(
 
                                     Image(
                                         bitmap = bitmap.asImageBitmap(),
-                                        contentDescription = "Selected picture",
+                                        contentDescription = T("Selected picture"),
                                         modifier = Modifier
                                             .size(110.dp)
                                             .clip(
@@ -586,7 +589,7 @@ fun EntryScreen(
                         ) {
 
                             Text(
-                                text = "${selectedVideos.size} video(s) selected",
+                                text = T("{0} video(s) selected", selectedVideos.size),
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = WinxDarkBlue
@@ -605,7 +608,7 @@ fun EntryScreen(
                             ) {
 
                                 Text(
-                                    text = "Add More",
+                                    text = T("Add More"),
                                     color = WinxBlue
                                 )
                             }
@@ -671,7 +674,7 @@ fun EntryScreen(
 
 
                         Text(
-                            text = "Tap the video controls to play or pause.",
+                            text = T("Tap the video controls to play or pause."),
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -695,7 +698,7 @@ fun EntryScreen(
             // ---------------------------------------------------------
 
             Text(
-                text = "Basic Details",
+                text = T("Basic Details"),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = WinxDarkBlue
@@ -719,10 +722,10 @@ fun EntryScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Entry Title")
+                    Text(T("Entry Title"))
                 },
                 placeholder = {
-                    Text("e.g. Amazing day in Cape Town")
+                    Text(T("e.g. Amazing day in Cape Town"))
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
@@ -746,10 +749,10 @@ fun EntryScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
-                    Text("Location")
+                    Text(T("Location"))
                 },
                 placeholder = {
-                    Text("Where did you go?")
+                    Text(T("Where did you go?"))
                 },
                 leadingIcon = {
 
@@ -800,7 +803,7 @@ fun EntryScreen(
 
                     Icon(
                         imageVector = Icons.Outlined.LocationOn,
-                        contentDescription = "Country",
+                        contentDescription = T("Country"),
                         tint = WinxOrange,
                         modifier = Modifier.size(22.dp)
                     )
@@ -816,7 +819,7 @@ fun EntryScreen(
                     ) {
 
                         Text(
-                            text = "Country",
+                            text = T("Country"),
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -844,11 +847,11 @@ fun EntryScreen(
                     ) {
 
                         Text(
-                            text = if (selectedCountry.isEmpty()) {
+                            text = T(if (selectedCountry.isEmpty()) {
                                 "Add"
                             } else {
                                 "Change"
-                            },
+                            }),
                             color = WinxBlue
                         )
                     }
@@ -885,7 +888,7 @@ fun EntryScreen(
 
                     Icon(
                         imageVector = Icons.Outlined.CalendarToday,
-                        contentDescription = "Date",
+                        contentDescription = T("Date"),
                         tint = WinxBlue,
                         modifier = Modifier.size(22.dp)
                     )
@@ -899,7 +902,7 @@ fun EntryScreen(
                     Column {
 
                         Text(
-                            text = "Date",
+                            text = T("Date"),
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -926,7 +929,7 @@ fun EntryScreen(
             // ---------------------------------------------------------
 
             Text(
-                text = "Rate your experience",
+                text = T("Rate your experience"),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = WinxDarkBlue
@@ -946,7 +949,7 @@ fun EntryScreen(
 
                     Icon(
                         imageVector = Icons.Outlined.Star,
-                        contentDescription = "Rating $star",
+                        contentDescription = T("Rating {0}", star),
                         tint = if (star <= rating) {
                             WinxOrange
                         } else {
@@ -983,10 +986,10 @@ fun EntryScreen(
                     .fillMaxWidth()
                     .height(130.dp),
                 label = {
-                    Text("Notes")
+                    Text(T("Notes"))
                 },
                 placeholder = {
-                    Text("Tell us about your experience...")
+                    Text(T("Tell us about your experience..."))
                 },
                 maxLines = 5,
                 shape = RoundedCornerShape(12.dp)
@@ -1029,7 +1032,7 @@ fun EntryScreen(
                 )
 
                 Text(
-                    text = validationError!!,
+                    text = T(validationError!!),
                     color = Color.Red,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
@@ -1080,7 +1083,7 @@ fun EntryScreen(
 
 
                     Text(
-                        text = "Cancel",
+                        text = T("Cancel"),
                         color = WinxDarkBlue
                     )
                 }
@@ -1138,7 +1141,7 @@ fun EntryScreen(
                 ) {
 
                     Text(
-                        text = if (isSaving) "Saving..." else "Save Entry",
+                        text = T(if (isSaving) "Saving..." else "Save Entry"),
                         color = WinxDarkBlue,
                         fontWeight = FontWeight.Bold
                     )
@@ -1211,7 +1214,7 @@ private fun MediaOption(
 
 
             Text(
-                text = title,
+                text = T(title),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = if (backgroundColor == WinxOrange) {
@@ -1305,7 +1308,7 @@ private fun EntryNavigationItem(
 
 
             Text(
-                text = label,
+                text = T(label),
                 fontSize = 10.sp,
                 color = if (selected) {
                     WinxBlue

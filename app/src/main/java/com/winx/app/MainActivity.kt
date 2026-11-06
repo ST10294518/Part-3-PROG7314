@@ -31,6 +31,14 @@ import com.winx.app.auth.BiometricPolicy
 import com.winx.app.navigation.AppNavigation
 import com.winx.app.ui.theme.WinxTheme
 import com.winx.app.utils.T
+import com.winx.app.utils.localise
+import android.Manifest
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.firebase.messaging.FirebaseMessaging
+import com.winx.app.notifications.WinxNotifications
 
 class MainActivity : FragmentActivity() {
     private val auth by lazy { FirebaseAuth.getInstance() }
@@ -79,10 +87,61 @@ class MainActivity : FragmentActivity() {
             settings.getBoolean("enabled_$it", false)
         } ?: false
     }
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            Log.d(
+                "WinxFCM",
+                "Notification permission granted: $granted"
+            )
+        }
 
+    private fun initialisePushNotifications() {
+        WinxNotifications.clearAlerts(this)
+
+        FirebaseMessaging.getInstance().token
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val token = task.result
+
+                    getSharedPreferences("winx_push", MODE_PRIVATE)
+                        .edit()
+                        .putString("fcm_token", token)
+                        .apply()
+
+                    val debugBuild =
+                        applicationInfo.flags and
+                                ApplicationInfo.FLAG_DEBUGGABLE != 0
+
+                    if (debugBuild) {
+                        Log.d("WinxFCM", "FCM token: $token")
+                    }
+                } else {
+                    Log.w(
+                        "WinxFCM",
+                        "Unable to obtain notification token",
+                        task.exception
+                    )
+                }
+            }
+
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        initialisePushNotifications()
         sessionGeneration = savedInstanceState?.getInt("sessionGeneration", 0) ?: 0
         observedUid = auth.currentUser?.uid
         signedInUid = observedUid
@@ -250,10 +309,10 @@ class MainActivity : FragmentActivity() {
         promptRunning = true
         lockMessage = ""
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(title)
-            .setSubtitle("Verify using your registered biometric")
+            .setTitle(localise(this, title))
+            .setSubtitle(localise(this, "Verify using your registered biometric"))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButtonText("Cancel")
+            .setNegativeButtonText(localise(this, "Cancel"))
             .build()
         try {
             biometricPrompt.authenticate(info)
