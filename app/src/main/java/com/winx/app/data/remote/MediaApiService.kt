@@ -1,6 +1,11 @@
 package com.winx.app.data.remote
 
+import okhttp3.MultipartBody
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+import okhttp3.ResponseBody
 import retrofit2.Response
+import retrofit2.http.Streaming
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -27,6 +32,21 @@ interface MediaApiService {
         @Header("Authorization") authorization: String,
         @Body media: MediaItemDto
     ): Response<MediaItemDto>
+
+    @Multipart
+    @POST("api/Media/entry/{travelEntryId}/upload")
+    suspend fun uploadMedia(
+        @Header("Authorization") authorization: String,
+        @Path("travelEntryId") travelEntryId: Int,
+        @Part file: MultipartBody.Part
+    ): MediaItemDto
+
+    @Streaming
+    @GET("api/Media/{id}/content")
+    suspend fun downloadMedia(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int
+    ): ResponseBody
 
     @DELETE("api/Media/{id}")
     suspend fun deleteMedia(

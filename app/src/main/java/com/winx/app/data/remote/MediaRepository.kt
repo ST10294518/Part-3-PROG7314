@@ -1,5 +1,16 @@
 package com.winx.app.data.remote
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import java.io.File
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 
@@ -63,6 +74,109 @@ class MediaRepository {
                 exception
             )
 
+            Result.failure(exception)
+        }
+    }
+
+    suspend fun uploadMedia(context: Context, travelEntryId: Int, uri: Uri): Result<MediaItemDto> {
+        return try {
+            val uploaded = withContext(Dispatchers.IO) {
+                val resolver = context.contentResolver
+                val displayName = resolver.query(
+                    uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+
+                val extension = when (resolver.getType(uri)?.lowercase()) {
+                    "image/jpeg" -> "jpg"
+                    "image/png" -> "png"
+                    "image/webp" -> "webp"
+                    "video/mp4" -> "mp4"
+                    else -> when (displayName?.substringAfterLast('.', "")?.lowercase()) {
+                        "jpg", "jpeg" -> "jpg"
+                        "png" -> "png"
+                        "webp" -> "webp"
+                        "mp4" -> "mp4"
+                        else -> throw IOException("Choose a JPEG, PNG, WebP, or MP4 file.")
+                    }
+                }
+
+                val baseName = displayName.orEmpty()
+                    .substringAfterLast('/')
+                    .substringAfterLast('\\')
+                    .substringBeforeLast('.')
+                    .filterNot { it.isISOControl() }
+                    .trim()
+                    .take(200)
+                    .ifBlank { "attachment" }
+
+                val temporaryFile = File.createTempFile("winx-upload-", ".tmp", context.cacheDir)
+                try {
+                    val input = resolver.openInputStream(uri)
+                        ?: throw IOException("Could not open the selected attachment.")
+
+                    input.use { source ->
+                        temporaryFile.outputStream().use { destination ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            var totalBytes = 0
+
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val read = source.read(buffer)
+                                if (read == -1) break
+
+                                totalBytes += read
+                                if (totalBytes > 25 * 1024 * 1024) {
+                                    throw IOException("Choose an attachment no larger than 25 MiB.")
+                                }
+                                destination.write(buffer, 0, read)
+                            }
+
+                            if (totalBytes == 0) throw IOException("The selected attachment is empty.")
+                        }
+                    }
+
+                    val part = MultipartBody.Part.createFormData(
+                        "file", "$baseName.$extension", temporaryFile.asRequestBody()
+                    )
+                    session.request { authorization ->
+                        api.uploadMedia(authorization, travelEntryId, part)
+                    }
+                } finally {
+                    temporaryFile.delete()
+                }
+            }
+            Result.success(uploaded)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(exception)
+        }
+    }
+
+    suspend fun downloadMedia(id: Int, destination: File): Result<Unit> {
+        return try {
+            session.request { authorization ->
+                api.downloadMedia(authorization, id).use { body ->
+                    withContext(Dispatchers.IO) {
+                        destination.outputStream().use { output ->
+                            val input = body.byteStream()
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val read = input.read(buffer)
+                                if (read == -1) break
+                                output.write(buffer, 0, read)
+                            }
+                        }
+                    }
+                }
+            }
+            Result.success(Unit)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
             Result.failure(exception)
         }
     }
