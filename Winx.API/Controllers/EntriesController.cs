@@ -18,33 +18,36 @@ public class EntriesController : ControllerBase
         get
         {
             var uid = OwnerUid;
-            return _context.TravelEntries.Where(entry => entry.OwnerUid == uid);
+
+            return _context.TravelEntries
+                .Where(entry => entry.OwnerUid == uid);
         }
     }
+
+    private IQueryable<TravelEntry> ActiveEntries =>
+        OwnedEntries.Where(entry => !entry.IsDeleted);
 
     public EntriesController(AppDbContext context)
     {
         _context = context;
     }
 
-    // GET: api/Entries
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TravelEntry>>> GetEntries()
     {
-        var entries = await OwnedEntries
+        var entries = await ActiveEntries
             .AsNoTracking()
             .ToListAsync();
 
         return Ok(entries);
     }
 
-    // GET: api/Entries/5
     [HttpGet("{id:int}")]
     public async Task<ActionResult<TravelEntry>> GetEntry(int id)
     {
-        var entry = await OwnedEntries
+        var entry = await ActiveEntries
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == id);
+            .FirstOrDefaultAsync(entry => entry.Id == id);
 
         if (entry == null)
         {
@@ -57,9 +60,9 @@ public class EntriesController : ControllerBase
         return Ok(entry);
     }
 
-    // POST: api/Entries
     [HttpPost]
-    public async Task<ActionResult<TravelEntry>> CreateEntry(TravelEntry entry)
+    public async Task<ActionResult<TravelEntry>> CreateEntry(
+        TravelEntry entry)
     {
         if (entry.Rating < 1 || entry.Rating > 5)
         {
@@ -71,8 +74,9 @@ public class EntriesController : ControllerBase
 
         entry.Id = 0;
         entry.OwnerUid = OwnerUid;
+        entry.IsDeleted = false;
 
-        // Media must be created through the owner-checked media endpoint.
+        // Media is created through the owner-checked media endpoint.
         entry.MediaItems = new List<MediaItem>();
 
         _context.TravelEntries.Add(entry);
@@ -85,7 +89,6 @@ public class EntriesController : ControllerBase
         );
     }
 
-    // PUT: api/Entries/5
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateEntry(
         int id,
@@ -95,7 +98,8 @@ public class EntriesController : ControllerBase
         {
             return BadRequest(new
             {
-                message = "The entry ID in the URL does not match the entry ID in the request."
+                message =
+                    "The entry ID in the URL does not match the entry ID in the request."
             });
         }
 
@@ -107,8 +111,8 @@ public class EntriesController : ControllerBase
             });
         }
 
-        var existingEntry = await OwnedEntries
-            .FirstOrDefaultAsync(e => e.Id == id);
+        var existingEntry = await ActiveEntries
+            .FirstOrDefaultAsync(entry => entry.Id == id);
 
         if (existingEntry == null)
         {
@@ -130,14 +134,15 @@ public class EntriesController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/Entries/5
+    // Move to Recently Deleted. Preserve media for restoration.
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteEntry(int id)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync();
 
-        var entry = await OwnedEntries
-            .FirstOrDefaultAsync(e => e.Id == id);
+        var entry = await ActiveEntries
+            .FirstOrDefaultAsync(entry => entry.Id == id);
 
         if (entry == null)
         {
@@ -147,19 +152,117 @@ public class EntriesController : ControllerBase
             });
         }
 
+        entry.IsDeleted = true;
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return NoContent();
+    }
+
+    [HttpGet("deleted")]
+    public async Task<ActionResult<IEnumerable<TravelEntry>>>
+        GetDeletedEntries()
+    {
+        var entries = await OwnedEntries
+            .Where(entry => entry.IsDeleted)
+            .AsNoTracking()
+            .OrderByDescending(entry => entry.Id)
+            .ToListAsync();
+
+        return Ok(entries);
+    }
+
+    [HttpPost("{id:int}/restore")]
+    public async Task<IActionResult> RestoreEntry(int id)
+    {
+        var entry = await OwnedEntries
+            .FirstOrDefaultAsync(entry =>
+                entry.Id == id && entry.IsDeleted);
+
+        if (entry == null)
+        {
+            return NotFound();
+        }
+
+        entry.IsDeleted = false;
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // Queue blob cleanup only when deletion becomes permanent.
+    [HttpDelete("{id:int}/permanent")]
+    public async Task<IActionResult> PermanentlyDeleteEntry(int id)
+    {
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync();
+
+        var entry = await OwnedEntries
+            .FirstOrDefaultAsync(entry =>
+                entry.Id == id && entry.IsDeleted);
+
+        if (entry == null)
+        {
+            return NotFound();
+        }
+
+        await QueueBlobDeletions(new[] { entry.Id });
+
+        _context.TravelEntries.Remove(entry);
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return NoContent();
+    }
+
+    [HttpDelete("deleted")]
+    public async Task<IActionResult> EmptyDeletedEntries()
+    {
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync();
+
+        var entries = await OwnedEntries
+            .Where(entry => entry.IsDeleted)
+            .ToListAsync();
+
+        if (entries.Count > 0)
+        {
+            var entryIds = entries
+                .Select(entry => entry.Id)
+                .ToArray();
+
+            await QueueBlobDeletions(entryIds);
+
+            _context.TravelEntries.RemoveRange(entries);
+
+            await _context.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+
+        return NoContent();
+    }
+
+    // Called within the same transaction as permanent database removal.
+    private async Task QueueBlobDeletions(int[] entryIds)
+    {
         var blobNames = await _context.MediaItems
-            .Where(media => media.TravelEntryId == id && media.BlobName != null && media.BlobName != "")
+            .Where(media =>
+                entryIds.Contains(media.TravelEntryId) &&
+                media.BlobName != null &&
+                media.BlobName != "")
             .Select(media => media.BlobName!)
             .Distinct()
             .ToListAsync();
 
         _context.PendingBlobDeletions.AddRange(
-            blobNames.Select(blobName => new PendingBlobDeletion { BlobName = blobName }));
-
-        _context.TravelEntries.Remove(entry);
-        await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
-
-        return NoContent();
+            blobNames.Select(blobName =>
+                new PendingBlobDeletion
+                {
+                    BlobName = blobName
+                }));
     }
 }

@@ -1,194 +1,172 @@
 ﻿package com.winx.app.screens
 
-import com.winx.app.utils.T
-import android.content.Context
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
+import com.winx.app.data.remote.TravelEntryRepository
+import com.winx.app.ui.theme.WinxDarkBlue
+import com.winx.app.ui.theme.WinxWhite
+import com.winx.app.utils.T
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecentlyDeletedScreen(
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-
-    val preferences = remember {
-        context.getSharedPreferences(
-            "winx_deleted_items",
-            Context.MODE_PRIVATE
-        )
+fun RecentlyDeletedScreen(onBack: () -> Unit) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var uid by remember { mutableStateOf(auth.currentUser?.uid) }
+    DisposableEffect(auth) {
+        val listener = FirebaseAuth.AuthStateListener { uid = it.currentUser?.uid }
+        auth.addAuthStateListener(listener)
+        onDispose { auth.removeAuthStateListener(listener) }
     }
+    val accountUid = uid
+    val repository = remember { TravelEntryRepository() }
+    val scope = rememberCoroutineScope()
+    var entries by remember(accountUid) { mutableStateOf(emptyList<TravelEntry>()) }
+    var loading by remember(accountUid) { mutableStateOf(false) }
+    var busy by remember(accountUid) { mutableStateOf(false) }
+    var error by remember(accountUid) { mutableStateOf<String?>(null) }
+    var pendingDelete by remember(accountUid) { mutableStateOf<TravelEntry?>(null) }
+    var confirmEmpty by remember(accountUid) { mutableStateOf(false) }
 
-    val deletedItems = remember {
-        mutableStateListOf<String>().apply {
-            val stored = preferences.getStringSet(
-                "items",
-                emptySet()
-            ) ?: emptySet()
-
-            addAll(stored)
+    suspend fun reload() {
+        if (accountUid == null || auth.currentUser?.uid != accountUid) return
+        loading = true
+        error = null
+        try {
+            val result = repository.getDeletedEntries()
+            if (auth.currentUser?.uid == accountUid) {
+                result.onSuccess { entries = it }
+                    .onFailure { error = it.message ?: "Unable to load deleted entries." }
+            }
+        } finally {
+            if (auth.currentUser?.uid == accountUid) loading = false
         }
     }
 
-    var showEmptyDialog by remember {
-        mutableStateOf(false)
+    fun perform(action: suspend () -> Result<Unit>) {
+        if (busy || loading || accountUid == null || auth.currentUser?.uid != accountUid) return
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                val result = action()
+                if (auth.currentUser?.uid == accountUid) {
+                    if (result.isSuccess) reload()
+                    else error = result.exceptionOrNull()?.message ?: "Unable to update deleted entries."
+                }
+            } finally {
+                if (auth.currentUser?.uid == accountUid) busy = false
+            }
+        }
     }
 
-    fun saveItems() {
-        preferences.edit()
-            .putStringSet(
-                "items",
-                deletedItems.toSet()
-            )
-            .apply()
-    }
+    LaunchedEffect(accountUid) { reload() }
 
     Scaffold(
+        containerColor = WinxWhite,
         topBar = {
             TopAppBar(
-                title = {
-                    Text(T("Recently Deleted"))
-                },
+                title = { Text(T("Recently Deleted")) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = WinxDarkBlue,
+                    titleContentColor = WinxWhite,
+                    navigationIconContentColor = WinxWhite
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = T("Back")
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = T("Back"))
                     }
                 }
             )
         }
-    ) { paddingValues ->
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(20.dp),
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            Text(
-                text = T("Recently deleted items are kept here until permanently removed.")
-            )
-
-            if (deletedItems.isEmpty()) {
-
-                Text(
-                    text = T("Your Recently Deleted folder is empty.")
-                )
-
+            item {
+                Text(T("Recently deleted items are kept here until permanently removed."), color = WinxDarkBlue)
+            }
+            if (accountUid == null) {
+                item { Text(T("Please sign in to view your entries."), color = WinxDarkBlue) }
             } else {
-
-                deletedItems.toList().forEach { item ->
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = T("Deleted")
-                            )
-
-                            Text(
-                                text = item,
-                                modifier = Modifier
-                                    .padding(start = 12.dp)
-                                    .weight(1f)
-                            )
-
-                            Button(
-                                onClick = {
-                                    deletedItems.remove(item)
-                                    saveItems()
-                                }
-                            ) {
-                                Text(T("Restore"))
+                if (loading || busy) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+                error?.let { message ->
+                    item { Text(message, color = Color(0xFFB00020)) }
+                }
+                item {
+                    OutlinedButton(
+                        onClick = { scope.launch { reload() } },
+                        enabled = !loading && !busy
+                    ) { Text(T("Retry"), color = WinxDarkBlue) }
+                }
+                if (!loading && error == null && entries.isEmpty()) {
+                    item { Text(T("Your Recently Deleted folder is empty."), color = WinxDarkBlue) }
+                }
+                items(entries, key = { it.id }) { entry ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFCE9F1))) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text(entry.title.ifBlank { T("Untitled Entry") }, color = WinxDarkBlue)
+                            Text(listOf(entry.location, entry.country).filter { it.isNotBlank() }
+                                .joinToString(", "), color = Color.DarkGray)
+                            Text(entry.date.take(10), color = Color.DarkGray)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    enabled = !busy && !loading,
+                                    onClick = { perform { repository.restoreEntry(entry.id) } },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = WinxDarkBlue, contentColor = WinxWhite
+                                    )
+                                ) { Text(T("Restore")) }
+                                TextButton(
+                                    enabled = !busy && !loading,
+                                    onClick = { pendingDelete = entry }
+                                ) { Text(T("Delete"), color = Color(0xFFB00020)) }
                             }
                         }
                     }
                 }
-
-                OutlinedButton(
-                    onClick = {
-                        showEmptyDialog = true
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(T("Empty Deleted Items"))
+                if (entries.isNotEmpty()) item {
+                    OutlinedButton(
+                        enabled = !busy && !loading,
+                        onClick = { confirmEmpty = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(T("Empty Deleted Items"), color = WinxDarkBlue) }
                 }
             }
         }
     }
 
-    if (showEmptyDialog) {
-
+    if (confirmEmpty || pendingDelete != null) {
         AlertDialog(
-            onDismissRequest = {
-                showEmptyDialog = false
-            },
-            title = {
-                Text(T("Empty Recently Deleted?"))
-            },
+            onDismissRequest = { confirmEmpty = false; pendingDelete = null },
+            title = { Text(T(if (confirmEmpty) "Empty Recently Deleted?" else "Delete Entry?")) },
             text = {
-                Text(
-                    T("This will permanently remove all items from the Recently Deleted list.")
-                )
+                Text(T(if (confirmEmpty)
+                    "This will permanently remove all items from the Recently Deleted list."
+                else "This will permanently delete this entry. This cannot be undone."))
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        deletedItems.clear()
-                        saveItems()
-                        showEmptyDialog = false
-                    }
-                ) {
-                    Text(T("Delete All"))
-                }
+                TextButton(onClick = {
+                    val entry = pendingDelete
+                    val emptyAll = confirmEmpty
+                    pendingDelete = null
+                    confirmEmpty = false
+                    if (emptyAll) perform { repository.emptyDeletedEntries() }
+                    else if (entry != null) perform { repository.permanentlyDeleteEntry(entry.id) }
+                }) { Text(T("Delete")) }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showEmptyDialog = false
-                    }
-                ) {
-                    Text(T("Cancel"))
-                }
+                TextButton(onClick = { confirmEmpty = false; pendingDelete = null }) { Text(T("Cancel")) }
             }
         )
     }

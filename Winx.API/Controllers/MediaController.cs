@@ -21,7 +21,7 @@ namespace Winx.API.Controllers
             {
                 var uid = OwnerUid;
                 return _context.MediaItems.Where(media =>
-                    media.TravelEntry != null && media.TravelEntry.OwnerUid == uid);
+                    media.TravelEntry != null && media.TravelEntry.OwnerUid == uid && !media.TravelEntry.IsDeleted);
             }
         }
 
@@ -36,7 +36,7 @@ namespace Winx.API.Controllers
         {
             var uid = OwnerUid;
             var entryExists = await _context.TravelEntries
-                .AnyAsync(e => e.Id == travelEntryId && e.OwnerUid == uid);
+                .AnyAsync(e => e.Id == travelEntryId && e.OwnerUid == uid && !e.IsDeleted);
 
             if (!entryExists)
             {
@@ -119,7 +119,7 @@ namespace Winx.API.Controllers
 
             var uid = OwnerUid;
             var entryExists = await _context.TravelEntries
-                .AnyAsync(e => e.Id == media.TravelEntryId && e.OwnerUid == uid);
+                .AnyAsync(e => e.Id == media.TravelEntryId && e.OwnerUid == uid && !e.IsDeleted);
 
             if (!entryExists)
             {

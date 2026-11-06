@@ -6,6 +6,9 @@ namespace Winx.API.Models
     {
         public int Id { get; set; }
 
+        // Soft deletion preserves the original ID and associated media for restoration.
+        public bool IsDeleted { get; set; }
+
         // Null for legacy entries that predate Firebase ownership.
         [JsonIgnore]
         public string? OwnerUid { get; set; }

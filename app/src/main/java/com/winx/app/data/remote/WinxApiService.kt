@@ -43,4 +43,21 @@ interface WinxApiService {
         @Header("Authorization") authorization: String,
         @Path("id") id: Int
     ): Response<Unit>
+    @GET("api/Entries/deleted")
+    suspend fun getDeletedEntries(@Header("Authorization") authorization: String): List<TravelEntryDto>
+
+    @POST("api/Entries/{id}/restore")
+    suspend fun restoreEntry(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+    @DELETE("api/Entries/{id}/permanent")
+    suspend fun permanentlyDeleteEntry(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+    @DELETE("api/Entries/deleted")
+    suspend fun emptyDeletedEntries(@Header("Authorization") authorization: String): Response<Unit>
 }

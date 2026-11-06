@@ -50,6 +50,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -715,6 +716,21 @@ fun EntryScreen(
             // ---------------------------------------------------------
 
             OutlinedTextField(
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = WinxDarkBlue,
+                    unfocusedTextColor = WinxDarkBlue,
+                    disabledTextColor = WinxDarkBlue,
+                    focusedContainerColor = WinxWhite,
+                    unfocusedContainerColor = WinxWhite,
+                    disabledContainerColor = WinxWhite,
+                    cursorColor = WinxBlue,
+                    focusedLabelColor = WinxDarkBlue,
+                    unfocusedLabelColor = WinxDarkBlue,
+                    focusedPlaceholderColor = Color.DarkGray,
+                    unfocusedPlaceholderColor = Color.DarkGray,
+                    focusedLeadingIconColor = WinxBlue,
+                    unfocusedLeadingIconColor = WinxBlue
+                ),
                 value = title,
                 onValueChange = {
                     title = it
@@ -742,6 +758,21 @@ fun EntryScreen(
             // ---------------------------------------------------------
 
             OutlinedTextField(
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = WinxDarkBlue,
+                    unfocusedTextColor = WinxDarkBlue,
+                    disabledTextColor = WinxDarkBlue,
+                    focusedContainerColor = WinxWhite,
+                    unfocusedContainerColor = WinxWhite,
+                    disabledContainerColor = WinxWhite,
+                    cursorColor = WinxBlue,
+                    focusedLabelColor = WinxDarkBlue,
+                    unfocusedLabelColor = WinxDarkBlue,
+                    focusedPlaceholderColor = Color.DarkGray,
+                    unfocusedPlaceholderColor = Color.DarkGray,
+                    focusedLeadingIconColor = WinxBlue,
+                    unfocusedLeadingIconColor = WinxBlue
+                ),
                 value = location,
                 onValueChange = {
                     location = it
@@ -977,6 +1008,21 @@ fun EntryScreen(
             // ---------------------------------------------------------
 
             OutlinedTextField(
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = WinxDarkBlue,
+                    unfocusedTextColor = WinxDarkBlue,
+                    disabledTextColor = WinxDarkBlue,
+                    focusedContainerColor = WinxWhite,
+                    unfocusedContainerColor = WinxWhite,
+                    disabledContainerColor = WinxWhite,
+                    cursorColor = WinxBlue,
+                    focusedLabelColor = WinxDarkBlue,
+                    unfocusedLabelColor = WinxDarkBlue,
+                    focusedPlaceholderColor = Color.DarkGray,
+                    unfocusedPlaceholderColor = Color.DarkGray,
+                    focusedLeadingIconColor = WinxBlue,
+                    unfocusedLeadingIconColor = WinxBlue
+                ),
                 value = notes,
                 onValueChange = {
                     notes = it

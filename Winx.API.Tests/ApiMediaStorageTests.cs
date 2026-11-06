@@ -29,10 +29,14 @@ public partial class ApiAuthenticationTests
         using var app = new WinxApiFactory(connectionString, new InMemoryBlobContainer());
         using var owner = app.CreateClient();
         using var other = app.CreateClient();
+
         owner.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", app.CreateToken(expired: false));
+
         other.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", app.CreateToken(expired: false, uid: "test-account-b"));
+            new AuthenticationHeaderValue(
+                "Bearer",
+                app.CreateToken(expired: false, uid: "test-account-b"));
 
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -47,12 +51,15 @@ public partial class ApiAuthenticationTests
             Rating = 4,
             Notes = ""
         });
+
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
         var entry = await created.Content.ReadFromJsonAsync<TravelEntry>();
         Assert.NotNull(entry);
 
         var bytes = Convert.FromBase64String(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1xkAAAAASUVORK5CYII=");
+
         var uploadUrl = $"/api/Media/entry/{entry.Id}/upload";
 
         using var deniedForm = CreateUploadForm(bytes);
@@ -62,10 +69,12 @@ public partial class ApiAuthenticationTests
         using var form = CreateUploadForm(bytes);
         using var uploaded = await owner.PostAsync(uploadUrl, form);
         Assert.Equal(HttpStatusCode.Created, uploaded.StatusCode);
+
         var media = await uploaded.Content.ReadFromJsonAsync<MediaItem>();
         Assert.NotNull(media);
 
         var contentUrl = $"/api/Media/{media.Id}/content";
+
         using var deniedDownload = await other.GetAsync(contentUrl);
         Assert.Equal(HttpStatusCode.NotFound, deniedDownload.StatusCode);
 
@@ -77,13 +86,100 @@ public partial class ApiAuthenticationTests
         var stored = await db.MediaItems.AsNoTracking().SingleAsync();
         Assert.False(string.IsNullOrWhiteSpace(stored.BlobName));
 
-        var deleteUrl = deleteParentEntry ? $"/api/Entries/{entry.Id}" : $"/api/Media/{media.Id}";
-        using var deleted = await owner.DeleteAsync(deleteUrl);
-        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        if (deleteParentEntry)
+        {
+            // Soft deletion must preserve media for restoration.
+            using var softDeleted =
+                await owner.DeleteAsync($"/api/Entries/{entry.Id}");
+
+            Assert.Equal(HttpStatusCode.NoContent, softDeleted.StatusCode);
+
+            using var hiddenContent = await owner.GetAsync(contentUrl);
+            Assert.Equal(HttpStatusCode.NotFound, hiddenContent.StatusCode);
+
+            var retainedEntry = await db.TravelEntries
+                .AsNoTracking()
+                .SingleAsync(item => item.Id == entry.Id);
+
+            Assert.True(retainedEntry.IsDeleted);
+
+            Assert.True(await db.MediaItems
+                .AsNoTracking()
+                .AnyAsync(item => item.Id == media.Id));
+
+            Assert.False(await db.PendingBlobDeletions.AnyAsync());
+
+            // Other accounts cannot restore or permanently remove the entry.
+            using var deniedRestore = await other.PostAsync(
+                $"/api/Entries/{entry.Id}/restore",
+                null);
+
+            Assert.Equal(HttpStatusCode.NotFound, deniedRestore.StatusCode);
+
+            using var deniedPermanentDelete = await other.DeleteAsync(
+                $"/api/Entries/{entry.Id}/permanent");
+
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                deniedPermanentDelete.StatusCode);
+
+            // Restoration must make the original media available again.
+            using var restored = await owner.PostAsync(
+                $"/api/Entries/{entry.Id}/restore",
+                null);
+
+            Assert.Equal(HttpStatusCode.NoContent, restored.StatusCode);
+
+            using var restoredContent = await owner.GetAsync(contentUrl);
+            Assert.Equal(HttpStatusCode.OK, restoredContent.StatusCode);
+            Assert.Equal(
+                bytes,
+                await restoredContent.Content.ReadAsByteArrayAsync());
+
+            var restoredEntry = await db.TravelEntries
+                .AsNoTracking()
+                .SingleAsync(item => item.Id == entry.Id);
+
+            Assert.False(restoredEntry.IsDeleted);
+            Assert.False(await db.PendingBlobDeletions.AnyAsync());
+
+            // Only permanent deletion should queue the blob for cleanup.
+            using var deletedAgain =
+                await owner.DeleteAsync($"/api/Entries/{entry.Id}");
+
+            Assert.Equal(HttpStatusCode.NoContent, deletedAgain.StatusCode);
+
+            using var permanentlyDeleted = await owner.DeleteAsync(
+                $"/api/Entries/{entry.Id}/permanent");
+
+            Assert.Equal(
+                HttpStatusCode.NoContent,
+                permanentlyDeleted.StatusCode);
+
+            Assert.False(await db.TravelEntries
+                .AsNoTracking()
+                .AnyAsync(item => item.Id == entry.Id));
+        }
+        else
+        {
+            // Direct media deletion still queues cleanup immediately.
+            using var deleted =
+                await owner.DeleteAsync($"/api/Media/{media.Id}");
+
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+
         using var afterDelete = await owner.GetAsync(contentUrl);
         Assert.Equal(HttpStatusCode.NotFound, afterDelete.StatusCode);
 
-        var pending = await db.PendingBlobDeletions.AsNoTracking().SingleAsync();
+        Assert.False(await db.MediaItems
+            .AsNoTracking()
+            .AnyAsync(item => item.Id == media.Id));
+
+        var pending = await db.PendingBlobDeletions
+            .AsNoTracking()
+            .SingleAsync();
+
         Assert.Equal(stored.BlobName, pending.BlobName);
     }
 

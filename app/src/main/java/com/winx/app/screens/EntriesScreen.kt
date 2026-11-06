@@ -27,7 +27,24 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FilterChip
+import com.google.firebase.auth.FirebaseAuth
+import com.winx.app.utils.FavouriteEntries
+import com.winx.app.utils.RandomMemoryRules
+import com.winx.app.utils.FavouriteRules
+import com.winx.app.utils.currentWinxLanguage
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,6 +64,37 @@ fun EntriesScreen(
     onAddEntryClick: () -> Unit = {},
     onEntryClick: (TravelEntry) -> Unit = {}
 ) {
+
+    val context = LocalContext.current
+    val auth = remember { FirebaseAuth.getInstance() }
+    var uid by remember { mutableStateOf(auth.currentUser?.uid) }
+    DisposableEffect(auth) {
+        val listener = FirebaseAuth.AuthStateListener { uid = it.currentUser?.uid }
+        auth.addAuthStateListener(listener)
+        onDispose { auth.removeAuthStateListener(listener) }
+    }
+    val accountUid = uid
+    var lastRandomEntryId by rememberSaveable(accountUid) { mutableStateOf<Int?>(null) }
+    var favourites by remember(accountUid) {
+        mutableStateOf(accountUid?.let { FavouriteEntries.read(context, it) } ?: emptySet<Int>())
+    }
+    var onlyFavourites by rememberSaveable(accountUid) { mutableStateOf(false) }
+    DisposableEffect(context, accountUid) {
+        val prefs = accountUid?.let {
+            context.getSharedPreferences("winx_favourites_$it", android.content.Context.MODE_PRIVATE)
+        }
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "entry_ids" && accountUid != null) {
+                favourites = FavouriteEntries.read(context, accountUid)
+            }
+        }
+        prefs?.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs?.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    val visibleIds = FavouriteRules.visibleIds(entries.map { it.id }, favourites).toSet()
+    val displayedEntries = if (accountUid == null) emptyList() else if (onlyFavourites) {
+        entries.filter { it.id in visibleIds }
+    } else entries
 
     Column(
         modifier = Modifier
@@ -97,91 +145,180 @@ fun EntriesScreen(
         // ENTRIES
         // ---------------------------------------------------------
 
-        if (entries.isEmpty()) {
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(30.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        if (accountUid != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
-                Icon(
-                    imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = T("No entries"),
-                    tint = WinxBlue,
-                    modifier = Modifier.size(30.dp)
+                FilterChip(
+                    colors = favouriteChipColors(),
+                    selected = !onlyFavourites,
+                    onClick = { onlyFavourites = false },
+                    label = { Text(favouriteLabel("All entries")) }
                 )
-
-                Spacer(
-                    modifier = Modifier.height(14.dp)
+                FilterChip(
+                    colors = favouriteChipColors(),
+                    selected = onlyFavourites,
+                    onClick = { onlyFavourites = true },
+                    label = { Text("${favouriteLabel("Favourites")} (${visibleIds.size})") }
                 )
+            }
+        }
 
-                Text(
-                    text = T("No entries yet"),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = WinxDarkBlue
-                )
+        if (accountUid != null) {
+            Button(
+                onClick = {
+                    // Always use the current account and active entries, not the favourites filter.
+                    if (auth.currentUser?.uid == accountUid) {
+                        val pickedId = RandomMemoryRules.pickId(
+                            entries.map { it.id }, lastRandomEntryId
+                        )
+                        val memory = entries.firstOrNull { it.id == pickedId }
+                        if (memory != null) {
+                            lastRandomEntryId = memory.id
+                            onEntryClick(memory)
+                        }
+                    }
+                },
+                enabled = entries.any { it.id > 0 },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WinxDarkBlue,
+                    contentColor = WinxWhite,
+                    disabledContainerColor = Color(0xFFE0E0E0),
+                    disabledContentColor = WinxDarkBlue
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(favouriteLabel("Surprise me"), fontWeight = FontWeight.Bold)
+            }
+            Text(
+                text = favouriteLabel(
+                    if (entries.any { it.id > 0 }) "Rediscover a random travel memory."
+                    else "Add an entry to unlock random memories."
+                ),
+                color = WinxDarkBlue,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+            )
+        }
 
-                Spacer(
-                    modifier = Modifier.height(8.dp)
-                )
+        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (displayedEntries.isEmpty()) {
 
-                Text(
-                    text = T("Start capturing your journey by creating your first entry."),
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-
-                Spacer(
-                    modifier = Modifier.height(20.dp)
-                )
-
-                Button(
-                    onClick = onAddEntryClick,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = WinxOrange
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(30.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
 
                     Icon(
-                        imageVector = Icons.Outlined.Add,
-                        contentDescription = T("Add entry")
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = T("No entries"),
+                        tint = WinxBlue,
+                        modifier = Modifier.size(30.dp)
                     )
 
                     Spacer(
-                        modifier = Modifier.size(4.dp)
+                        modifier = Modifier.height(14.dp)
                     )
 
                     Text(
-                        text = T("Add Entry"),
-                        color = WinxDarkBlue,
-                        fontWeight = FontWeight.Bold
+                        text = when {
+                            accountUid == null -> favouriteLabel("Please sign in to view your entries.")
+                            onlyFavourites -> favouriteLabel("No favourites yet")
+                            else -> T("No entries yet")
+                        },
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WinxDarkBlue
                     )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text = if (onlyFavourites && accountUid != null) {
+                            favouriteLabel("Tap a heart on an entry to save it here.")
+                        } else T("Start capturing your journey by creating your first entry."),
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(20.dp)
+                    )
+
+                    if (accountUid != null) Button(
+                        onClick = if (onlyFavourites) ({ onlyFavourites = false }) else onAddEntryClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = WinxOrange
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = T("Add entry")
+                        )
+
+                        Spacer(
+                            modifier = Modifier.size(4.dp)
+                        )
+
+                        Text(
+                            text = if (onlyFavourites) favouriteLabel("All entries") else T("Add Entry"),
+                            color = WinxDarkBlue,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+            } else {
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+
+                    items(displayedEntries, key = { it.id }) { entry ->
+
+                        TravelEntryCard(
+                            entry = entry,
+                            isFavourite = entry.id in favourites,
+                            onToggleFavourite = {
+                                val currentUid = auth.currentUser?.uid
+                                if (currentUid != null && currentUid == accountUid) {
+                                    favourites = FavouriteEntries.toggle(context, currentUid, entry.id)
+                                }
+                            },
+                            onClick = {
+                                onEntryClick(entry)
+                            }
+                        )
+                    }
                 }
             }
-
-        } else {
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+        }
+        if (accountUid != null) {
+            Button(
+                onClick = onAddEntryClick,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WinxBlue,
+                    contentColor = WinxWhite
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-
-                items(entries) { entry ->
-
-                    TravelEntryCard(
-                        entry = entry,
-                        onClick = {
-                            onEntryClick(entry)
-                        }
-                    )
-                }
+                Icon(Icons.Outlined.Add, contentDescription = null)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(T("Add Entry"), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -195,6 +332,8 @@ fun EntriesScreen(
 @Composable
 private fun TravelEntryCard(
     entry: TravelEntry,
+    isFavourite: Boolean,
+    onToggleFavourite: () -> Unit,
     onClick: () -> Unit
 ) {
 
@@ -217,14 +356,30 @@ private fun TravelEntryCard(
             modifier = Modifier.padding(16.dp)
         ) {
 
-            Text(
-                text = entry.title.ifBlank {
-                    T("Untitled Entry")
-                },
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Bold,
-                color = WinxDarkBlue
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = entry.title.ifBlank {
+                            T("Untitled Entry")
+                        },
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WinxDarkBlue
+                    )
+                }
+                IconButton(onClick = onToggleFavourite, enabled = entry.id > 0) {
+                    Icon(
+                        imageVector = if (isFavourite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = favouriteLabel(
+                            if (isFavourite) "Remove from favourites" else "Add to favourites"
+                        ),
+                        tint = if (isFavourite) Color(0xFFC2185B) else WinxDarkBlue
+                    )
+                }
+            }
 
             Spacer(
                 modifier = Modifier.height(6.dp)
@@ -292,3 +447,45 @@ private fun TravelEntryCard(
         }
     }
 }
+
+@Composable
+private fun favouriteLabel(text: String): String {
+    val translations = when (currentWinxLanguage()) {
+        "isiZulu (Zulu)", "zu", "zu-ZA" -> mapOf(
+            "Surprise me" to "Ngimangaze",
+            "Rediscover a random travel memory." to "Phinda uthole inkumbulo yohambo ekhethwe ngokungahleliwe.",
+            "Add an entry to unlock random memories." to "Engeza okufakiwe ukuze uvule izinkumbulo ezingahleliwe.",
+            "All entries" to "Konke okufakiwe",
+            "Favourites" to "Izintandokazi",
+            "No favourites yet" to "Azikho izintandokazi okwamanje",
+            "Tap a heart on an entry to save it here." to "Thepha inhliziyo kokufakiwe ukuze ukugcine lapha.",
+            "Add to favourites" to "Engeza ezintandokazini",
+            "Remove from favourites" to "Susa ezintandokazini",
+            "Please sign in to view your entries." to "Sicela ungene ukuze ubone okufakiwe kwakho."
+        )
+        "Afrikaans", "af", "af-ZA" -> mapOf(
+            "Surprise me" to "Verras my",
+            "Rediscover a random travel memory." to "Herontdek 'n ewekansige reisherinnering.",
+            "Add an entry to unlock random memories." to "Voeg 'n inskrywing by om ewekansige herinneringe te ontsluit.",
+            "All entries" to "Alle inskrywings",
+            "Favourites" to "Gunstelinge",
+            "No favourites yet" to "Nog geen gunstelinge nie",
+            "Tap a heart on an entry to save it here." to "Tik die hartjie op 'n inskrywing om dit hier te stoor.",
+            "Add to favourites" to "Voeg by gunstelinge",
+            "Remove from favourites" to "Verwyder uit gunstelinge",
+            "Please sign in to view your entries." to "Meld aan om jou inskrywings te sien."
+        )
+        else -> emptyMap()
+    }
+    return translations[text] ?: text
+}
+
+
+@Composable
+private fun favouriteChipColors() = FilterChipDefaults.filterChipColors(
+    containerColor = WinxWhite,
+    labelColor = WinxDarkBlue,
+    selectedContainerColor = WinxDarkBlue,
+    selectedLabelColor = WinxWhite
+)
+
