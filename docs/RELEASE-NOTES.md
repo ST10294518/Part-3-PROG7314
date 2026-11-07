@@ -18,4 +18,4 @@
 
 ## Current scope
 
-The Offline Journal queues new text entries. Media uploads and changes to existing entries require a connection. The final physical-phone acceptance run and automatic backend notification delivery still need verification.
+The Offline Journal queues new text entries. Media uploads and changes to existing entries require a connection. The signed dc35542 release passed physical-phone checks for foreground and background notification delivery and notification isolation across accounts.
