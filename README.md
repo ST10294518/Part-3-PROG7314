@@ -6,6 +6,10 @@ Winx is a native Android travel and food journal for the PROG7314 / OPSC7312 Por
 
 [Prototype demonstration](https://youtu.be/eLnRsHEydFQ) · [Part 3 release notes](docs/RELEASE-NOTES.md) · [AI usage](docs/AI-USAGE.md)
 
+[Promotional screenshots and demo evidence](evidence/promotional-screenshots)
+
+[Final Part 3 demo](https://youtu.be/DWNfOwCqL1k)
+
 ---
 
 ## Table of Contents
